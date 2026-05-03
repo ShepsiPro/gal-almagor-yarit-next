@@ -1,0 +1,47 @@
+export default function Hero() {
+  return (
+    <section className="hero">
+      <div className="container hero__inner">
+        <div>
+          <div className="badge">
+            <span className="badge__dot" />
+            חבר בקבוצת גל אלמגור — מפתחים ביטוח מאז 2008
+          </div>
+          <h1 className="hero__title">
+            הבית הביטוחי
+            <br />
+            של הגליל
+            <br />
+            <em>המערבי.</em>
+          </h1>
+          <p className="hero__lede">
+            סוכנות ביטוח עצמאית בשלומי, חברה בקבוצת גל אלמגור.
+            מלווים משפחות ובעלי עסקים מנהריה ועד ראש הנקרה — באותה רמת אישיות,
+            עם הגב של קבוצה ארצית.
+          </p>
+          <div className="hero__ctas">
+            <a href="#contact" className="btn-primary">
+              שיחת ייעוץ ללא עלות
+            </a>
+            <a href="#categories" className="btn-link">
+              <span className="btn-link__arrow">←</span>
+              תחומי הליווי שלנו
+            </a>
+          </div>
+        </div>
+
+        <div className="hero__art">
+          <div className="hero__art-inner">
+            <div className="hero__art-tag">תמונת סוכנות · משרד שלומי</div>
+            <div>
+              <div className="hero__art-quote">
+                ״ביטוח הוא לא מוצר שמוכרים, הוא הבטחה שמקיימים.״
+              </div>
+              <div className="hero__art-attrib">גל אלמגור · מייסד הקבוצה</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
