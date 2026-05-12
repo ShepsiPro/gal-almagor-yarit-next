@@ -749,3 +749,263 @@ em { font-style: normal; color: var(--accent); }
   letter-spacing: -0.01em;
 }
 .footer__group { color: var(--accent-soft); }
+
+/* Insurance info pages */
+.info-hero {
+  padding: 80px 48px 96px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.info-hero__inner { max-width: 1320px; margin: 0 auto; }
+.info-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  margin-bottom: 36px;
+}
+.info-crumbs a { text-decoration: none; color: var(--muted); }
+.info-crumbs a:hover { color: var(--accent); opacity: 1; }
+.info-crumbs__sep { opacity: 0.5; }
+.info-crumbs__current { color: var(--ink); font-weight: 700; }
+.info-hero__head {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 18px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  margin-bottom: 28px;
+}
+.info-hero__num {
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+.info-hero__eyebrow {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.info-hero__title {
+  font-size: clamp(38px, 5vw, 72px);
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: -0.025em;
+  max-width: 980px;
+}
+.info-hero__intro {
+  font-size: 19px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin-top: 32px;
+  max-width: 760px;
+}
+.info-hero__ctas {
+  display: flex;
+  gap: 14px;
+  margin-top: 40px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.info-body { padding: 96px 48px; }
+.info-body__inner {
+  max-width: 1320px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.55fr 1fr;
+  gap: 80px;
+  align-items: start;
+}
+.info-body__main { display: flex; flex-direction: column; gap: 56px; }
+
+.info-section {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 24px;
+  padding-bottom: 56px;
+  border-bottom: 1px solid var(--line);
+}
+.info-section:last-child { border-bottom: none; padding-bottom: 0; }
+.info-section__index {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.14em;
+  padding-top: 14px;
+  border-top: 2px solid var(--accent);
+}
+.info-section__title {
+  font-size: clamp(26px, 2.6vw, 34px);
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: -0.018em;
+  line-height: 1.15;
+}
+.info-section__body {
+  font-size: 17px;
+  color: var(--ink);
+  line-height: 1.75;
+  margin: 18px 0 0;
+}
+.info-section__bullets-title {
+  font-size: 15px;
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 28px 0 14px;
+  text-transform: uppercase;
+}
+.info-section__bullets {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 28px;
+}
+.info-section__bullets li {
+  font-size: 15px;
+  color: var(--ink);
+  line-height: 1.55;
+  padding-right: 18px;
+  position: relative;
+}
+.info-section__bullets li::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+}
+
+.info-aside {
+  position: sticky;
+  top: 92px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.info-aside__card {
+  background: var(--deep);
+  background-image:
+    radial-gradient(at 20% 0%, rgba(0, 172, 255, 0.16) 0%, transparent 55%),
+    radial-gradient(at 100% 100%, rgba(255, 188, 125, 0.10) 0%, transparent 55%);
+  color: #fff;
+  border-radius: 6px;
+  padding: 36px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.info-aside__eyebrow {
+  font-size: 12px;
+  color: var(--accent-soft);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.info-aside__title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+.info-aside__desc {
+  font-size: 14px;
+  color: rgba(255,255,255,0.78);
+  margin: 0 0 4px;
+  line-height: 1.65;
+}
+.info-aside__cta {
+  background: #fff;
+  color: var(--ink);
+  text-align: center;
+  margin-top: 8px;
+}
+.info-aside__cta:hover { background: var(--accent-warm); color: var(--ink); }
+.info-aside__phone {
+  display: block;
+  text-align: center;
+  font-size: 17px;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: #fff;
+  text-decoration: none;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.18);
+  margin-top: 4px;
+}
+.info-aside__phone:hover { color: var(--accent-soft); opacity: 1; }
+
+.info-related {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 28px 28px 12px;
+}
+.info-related__eyebrow {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 18px;
+}
+.info-related__list { list-style: none; margin: 0; padding: 0; }
+.info-related__list li { border-top: 1px solid var(--line); }
+.info-related__list li:first-child { border-top: none; }
+.info-related__list a {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 0;
+  text-decoration: none;
+  transition: opacity .2s;
+}
+.info-related__list a:hover { opacity: 1; }
+.info-related__list a:hover .info-related__title { color: var(--accent); }
+.info-related__list a:hover .info-related__arrow { transform: translateX(-4px); color: var(--accent); }
+.info-related__num {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+.info-related__title {
+  font-size: 16px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  transition: color .2s;
+}
+.info-related__arrow {
+  color: var(--muted);
+  font-size: 18px;
+  transition: transform .2s, color .2s;
+}
+
+@media (max-width: 980px) {
+  .info-hero { padding: 56px 24px 64px; }
+  .info-body { padding: 64px 24px; }
+  .info-body__inner { grid-template-columns: 1fr; gap: 56px; }
+  .info-aside { position: static; }
+  .info-section { grid-template-columns: 1fr; gap: 12px; }
+  .info-section__index { padding-top: 0; border-top: none; padding-bottom: 8px; }
+  .info-section__bullets { grid-template-columns: 1fr; }
+}

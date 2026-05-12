@@ -20,7 +20,7 @@ const TOPICS = [
   "תיק ביטוח כולל",
 ];
 
-export default function Contact() {
+export default function Contact({ defaultTopic = "" }: { defaultTopic?: string } = {}) {
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     alert("תודה! נחזור אליך בקרוב.");
@@ -65,7 +65,7 @@ export default function Contact() {
           </div>
           <div className="field">
             <label htmlFor="cf-topic">תחום הביטוח</label>
-            <select id="cf-topic" defaultValue="">
+            <select key={defaultTopic} id="cf-topic" defaultValue={defaultTopic}>
               <option value="" disabled>בחרו תחום…</option>
               {TOPICS.map((t) => <option key={t}>{t}</option>)}
             </select>

@@ -34,7 +34,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="he" dir="rtl" className={coherenti.variable}>
+    <html lang="he" dir="rtl" className={coherenti.variable} suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

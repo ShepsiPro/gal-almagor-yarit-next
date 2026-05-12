@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const CATEGORIES = [
   {
     id: "car",
@@ -79,9 +81,9 @@ export default function Categories() {
               <ul className="card__bullets">
                 {c.bullets.map((b) => <li key={b}>{b}</li>)}
               </ul>
-              <a href="#contact" className="card__cta">
-                קבלת הצעה <span>←</span>
-              </a>
+              <Link href={`/insurance/${c.id}`} className="card__cta">
+                קרא עוד <span>←</span>
+              </Link>
             </article>
           ))}
         </div>

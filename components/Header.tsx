@@ -1,10 +1,11 @@
 import Image from "next/image";
+import Link from "next/link";
 
 export default function Header() {
   return (
     <header className="header">
       <div className="container header__inner">
-        <a href="#" className="header__brand">
+        <Link href="/" className="header__brand">
           <Image
             src="/assets/gal-almagor-logo.svg"
             alt="גל אלמגור"
@@ -13,17 +14,17 @@ export default function Header() {
             height={32}
             priority
           />
-        </a>
+        </Link>
         <nav className="header__nav">
-          <a href="#about">אודות</a>
-          <a href="#categories">תחומי ביטוח</a>
-          <a href="#why">למה אנחנו</a>
-          <a href="#partners">חברות הביטוח</a>
-          <a href="#contact">צור קשר</a>
+          <Link href="/#about">אודות</Link>
+          <Link href="/#categories">תחומי ביטוח</Link>
+          <Link href="/#why">למה אנחנו</Link>
+          <Link href="/#partners">חברות הביטוח</Link>
+          <Link href="/#contact">צור קשר</Link>
         </nav>
-        <a href="#contact" className="header__cta">
+        <Link href="/#contact" className="header__cta">
           קביעת פגישה
-        </a>
+        </Link>
       </div>
     </header>
   );
