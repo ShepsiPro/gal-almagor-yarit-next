@@ -6,18 +6,13 @@ export default function Header() {
       <div className="container header__inner">
         <a href="#" className="header__brand">
           <Image
-            src="/assets/group-logo.png"
-            alt="גל אלמגור — קבוצה מבטחת"
+            src="/assets/gal-almagor-logo.svg"
+            alt="גל אלמגור"
             className="header__logo-img"
-            width={200}
-            height={41}
+            width={260}
+            height={32}
             priority
           />
-          <span className="header__divider" />
-          <div>
-            <div className="header__sub-name">סוכנות יערית</div>
-            <div className="header__sub-loc">שלומי · הגליל המערבי</div>
-          </div>
         </a>
         <nav className="header__nav">
           <a href="#about">אודות</a>

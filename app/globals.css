@@ -55,29 +55,9 @@ em { font-style: normal; color: var(--accent); }
 }
 .header__brand:hover { opacity: 1; }
 .header__logo-img {
-  width: 168px;
+  width: 260px;
   height: auto;
   display: block;
-}
-.header__divider {
-  width: 1px;
-  height: 34px;
-  background: var(--line);
-}
-.header__sub-name {
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--ink);
-  line-height: 1.1;
-  letter-spacing: -0.01em;
-}
-.header__sub-loc {
-  font-size: 11px;
-  color: var(--muted);
-  font-weight: 400;
-  letter-spacing: 0.08em;
-  line-height: 1.1;
-  margin-top: 4px;
 }
 .header__nav {
   display: flex;
