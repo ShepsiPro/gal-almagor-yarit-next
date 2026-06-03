@@ -18,6 +18,7 @@ export default function Header() {
         <nav className="header__nav">
           <Link href="/#about">אודות</Link>
           <Link href="/#categories">תחומי ביטוח</Link>
+          <Link href="/#quote">הצעת מחיר</Link>
           <Link href="/#why">למה אנחנו</Link>
           <Link href="/#partners">חברות הביטוח</Link>
           <Link href="/#contact">צור קשר</Link>

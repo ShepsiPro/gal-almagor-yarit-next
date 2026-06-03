@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import Stats from "@/components/Stats";
 import Categories from "@/components/Categories";
+import Quote from "@/components/Quote";
 import About from "@/components/About";
 import WhyUs from "@/components/WhyUs";
 import Partners from "@/components/Partners";
@@ -15,6 +16,7 @@ export default function Home() {
       <Hero />
       <Stats />
       <Categories />
+      <Quote />
       <About />
       <WhyUs />
       <Partners />
