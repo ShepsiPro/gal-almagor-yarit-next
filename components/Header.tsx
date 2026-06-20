@@ -22,11 +22,11 @@ export default function Header() {
       <div className="container header__inner">
         <Link href="/" className="header__brand" onClick={close}>
           <Image
-            src="/assets/gal-almagor-logo.svg"
-            alt="גל אלמגור"
+            src="/assets/yarit-logo.png"
+            alt="יערית · סוכנות לביטוח"
             className="header__logo-img"
-            width={260}
-            height={32}
+            width={678}
+            height={246}
             priority
           />
         </Link>

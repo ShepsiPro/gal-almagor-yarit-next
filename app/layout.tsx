@@ -14,6 +14,7 @@ const coherenti = localFont({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.almagor-yaarit.com"),
   title: "גל אלמגור יערית · סוכנות ביטוח · שלומי",
   description:
     "סוכנות ביטוח עצמאית בשלומי, חברה בקבוצת גל אלמגור. ביטוחי רכב, דירה, עסקים, חיים ובריאות, פרישה ופיננסים — בליווי אישי לכל מהלך התיק.",

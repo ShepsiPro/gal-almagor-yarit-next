@@ -58,8 +58,8 @@ em { font-style: normal; color: var(--accent); }
 }
 .header__brand:hover { opacity: 1; }
 .header__logo-img {
-  width: 260px;
-  height: auto;
+  height: 54px;
+  width: auto;
   display: block;
 }
 .header__nav {
@@ -239,14 +239,27 @@ em { font-style: normal; color: var(--accent); }
   position: relative;
   overflow: hidden;
 }
+.hero__art-img {
+  object-fit: cover;
+  object-position: center;
+  z-index: 0;
+}
 .hero__art-inner {
   position: absolute;
   inset: 0;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 36px;
   color: #fff;
+  background: linear-gradient(
+    180deg,
+    rgba(10, 22, 40, 0.58) 0%,
+    rgba(10, 22, 40, 0) 26%,
+    rgba(10, 22, 40, 0) 46%,
+    rgba(10, 22, 40, 0.86) 100%
+  );
 }
 .hero__art-tag {
   font-size: 11px;
@@ -790,6 +803,74 @@ em { font-style: normal; color: var(--accent); }
   color: var(--muted);
   text-align: center;
 }
+.crow__link {
+  text-decoration: none;
+  transition: color .2s;
+}
+.crow__link:hover { color: var(--accent); opacity: 1; }
+a.crow__value[dir="ltr"] { text-align: right; }
+
+/* Contact map */
+.contact__map-wrap { margin-top: 72px; }
+.contact__map-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.contact__map-where {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.contact__map-addr {
+  font-size: 20px;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.contact__map-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.map-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 11px 20px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  transition: border-color .2s, background .2s, color .2s;
+}
+.map-btn:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
+.map-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 3px 6px rgba(20, 47, 77, 0.15);
+}
+.map-btn--primary:hover { background: var(--accent-soft); border-color: var(--accent-soft); color: #fff; }
+.contact__map {
+  position: relative;
+  height: 380px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(20, 47, 77, 0.06);
+  background: var(--surface);
+}
+.contact__map iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
 
 /* Quote / Simulator */
 .quote__frame {
@@ -838,6 +919,16 @@ em { font-style: normal; color: var(--accent); }
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;
+}
+.footer__col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.footer__logo {
+  height: 52px;
+  width: auto;
+  display: block;
 }
 .footer__brand {
   color: #fff;
@@ -1116,7 +1207,7 @@ em { font-style: normal; color: var(--accent); }
 /* Tablet */
 @media (max-width: 1024px) {
   .header__inner { padding: 16px 32px; }
-  .header__logo-img { width: 230px; }
+  .header__logo-img { height: 50px; }
   .header__nav { gap: 24px; }
 
   .hero { padding-bottom: 96px; }
@@ -1144,7 +1235,7 @@ em { font-style: normal; color: var(--accent); }
 
   /* === Header === */
   .header__inner { padding: 12px 20px; gap: 14px; }
-  .header__logo-img { width: 196px; }
+  .header__logo-img { height: 44px; }
   .header__nav,
   .header__cta { display: none; }
   .header__toggle { display: inline-flex; }
@@ -1232,6 +1323,10 @@ em { font-style: normal; color: var(--accent); }
   .contact__grid { grid-template-columns: 1fr; gap: 32px; }
   .contact__rows { margin-top: 28px; }
   .form { padding: 26px 20px; }
+  .contact__map-wrap { margin-top: 44px; }
+  .contact__map { height: 300px; }
+  .contact__map-actions { width: 100%; }
+  .map-btn { flex: 1; justify-content: center; }
 
   /* === Quote simulator === */
   .quote__frame { min-height: 560px; }
@@ -1247,7 +1342,7 @@ em { font-style: normal; color: var(--accent); }
    ============================================================ */
 @media (max-width: 480px) {
   .header__inner { padding: 12px 16px; }
-  .header__logo-img { width: 170px; }
+  .header__logo-img { height: 40px; }
   .header__mobile-nav { padding: 4px 16px 18px; }
 
   .hero__inner { padding: 32px 16px 0; }

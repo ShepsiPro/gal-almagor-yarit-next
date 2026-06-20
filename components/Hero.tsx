@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export default function Hero() {
   return (
     <section className="hero">
@@ -31,8 +33,16 @@ export default function Hero() {
         </div>
 
         <div className="hero__art">
+          <Image
+            src="/assets/office-shlomi.jpg"
+            alt="משרד סוכנות יערית בשלומי — הגליל המערבי"
+            className="hero__art-img"
+            fill
+            sizes="(max-width: 920px) 92vw, 45vw"
+            priority
+          />
           <div className="hero__art-inner">
-            <div className="hero__art-tag">תמונת סוכנות · משרד שלומי</div>
+            <div className="hero__art-tag">משרד הסוכנות · שלומי</div>
             <div>
               <div className="hero__art-quote">
                 ״ביטוח הוא לא מוצר שמוכרים, הוא הבטחה שמקיימים.״
