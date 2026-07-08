@@ -2,12 +2,12 @@ import Image from "next/image";
 
 export default function Hero() {
   return (
-    <section className="hero">
+    <section id="main-content" tabIndex={-1} className="hero">
       <div className="container hero__inner">
         <div>
           <div className="badge">
-            <span className="badge__dot" />
-            חבר בקבוצת גל אלמגור — מפתחים ביטוח מאז 2008
+            <span className="badge__tag">קבוצת גל אלמגור</span>
+            <span className="badge__text">סוכנות לביטוח </span>
           </div>
           <h1 className="hero__title">
             הבית הביטוחי

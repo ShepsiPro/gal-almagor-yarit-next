@@ -42,7 +42,7 @@ export default async function InsurancePage({ params }: PageProps) {
     <>
       <Header />
 
-      <section className="info-hero">
+      <section id="main-content" tabIndex={-1} className="info-hero">
         <div className="container info-hero__inner">
           <nav className="info-crumbs" aria-label="breadcrumbs">
             <Link href="/">בית</Link>

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import AccessibilityWidget from "@/components/AccessibilityWidget";
 
 const coherenti = localFont({
   src: [
@@ -36,7 +37,13 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="he" dir="rtl" className={coherenti.variable} suppressHydrationWarning>
-      <body>{children}</body>
+      <body>
+        <a href="#main-content" className="skip-link">
+          דילוג לתוכן הראשי
+        </a>
+        <div className="site-root">{children}</div>
+        <AccessibilityWidget />
+      </body>
     </html>
   );
 }
