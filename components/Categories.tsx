@@ -3,7 +3,6 @@ import Link from "next/link";
 const CATEGORIES = [
   {
     id: "car",
-    num: "01 / 06",
     sub: "חובה, מקיף וצד ג׳",
     title: "ביטוח רכב",
     desc: "כיסוי מלא לרכב הפרטי או המשפחתי, כולל גרירה, רכב חלופי וכיסוי לנהגים צעירים. השוואת הצעות מכל החברות המובילות.",
@@ -11,7 +10,6 @@ const CATEGORIES = [
   },
   {
     id: "home",
-    num: "02 / 06",
     sub: "מבנה ותכולה",
     title: "ביטוח דירה",
     desc: "הגנה מקיפה על הבית והרכוש שבו, מפני נזקי טבע, גניבה, שריפה ומים. התאמה מדויקת לשווי ולסיכוני האזור.",
@@ -19,7 +17,6 @@ const CATEGORIES = [
   },
   {
     id: "business",
-    num: "03 / 06",
     sub: "פתרונות לעסק שלך",
     title: "ביטוח עסקים",
     desc: "ליווי צמוד לעסקים קטנים, בינוניים וגדולים. ביטוח רכוש, אחריות מקצועית, חבות מעבידים וסייבר — בהתאמה לענף.",
@@ -27,7 +24,6 @@ const CATEGORIES = [
   },
   {
     id: "life",
-    num: "04 / 06",
     sub: "ביטחון למשפחה",
     title: "ביטוחי חיים ובריאות",
     desc: "תוכניות מותאמות אישית לכל שלב בחיים — ביטוח חיים, מחלות קשות, סיעוד וביטוחי בריאות פרטיים מהחברות המובילות.",
@@ -35,7 +31,6 @@ const CATEGORIES = [
   },
   {
     id: "retirement",
-    num: "05 / 06",
     sub: "פנסיה וגמל",
     title: "תכנון פרישה",
     desc: "ניתוח מצב פנסיוני, אופטימיזציה של קופות גמל וקרנות השתלמות, ובניית תוכנית פרישה ארוכת טווח. ייעוץ אובייקטיבי.",
@@ -43,7 +38,6 @@ const CATEGORIES = [
   },
   {
     id: "finance",
-    num: "06 / 06",
     sub: "ניהול הון משפחתי",
     title: "פיננסים",
     desc: "ייעוץ פיננסי כולל — משכנתאות, הלוואות, חיסכון לטווח ארוך והשקעות. בנייה של תמונה כלכלית בהירה למשפחה ולעסק.",
@@ -71,20 +65,17 @@ export default function Categories() {
 
         <div className="cards">
           {CATEGORIES.map((c) => (
-            <article className="card" key={c.id}>
-              <div className="card__top">
-                <span className="card__num">{c.num}</span>
-                <span className="card__sub">{c.sub}</span>
-              </div>
+            <Link href={`/insurance/${c.id}`} className="card" key={c.id}>
+              <span className="card__sub">{c.sub}</span>
               <h3 className="card__title">{c.title}</h3>
               <p className="card__desc">{c.desc}</p>
               <ul className="card__bullets">
                 {c.bullets.map((b) => <li key={b}>{b}</li>)}
               </ul>
-              <Link href={`/insurance/${c.id}`} className="card__cta">
-                קרא עוד <span>←</span>
-              </Link>
-            </article>
+              <span className="card__cta">
+                קרא עוד <span className="card__cta-arrow">←</span>
+              </span>
+            </Link>
           ))}
         </div>
       </div>

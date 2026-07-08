@@ -7,7 +7,6 @@ export type InsuranceSection = {
 
 export type InsuranceContent = {
   slug: string;
-  num: string;
   eyebrow: string;
   topic: string;
   title: string;
@@ -19,7 +18,6 @@ export type InsuranceContent = {
 export const INSURANCE_CONTENT: Record<string, InsuranceContent> = {
   car: {
     slug: "car",
-    num: "01 / 06",
     eyebrow: "ביטוח רכב",
     topic: "ביטוח רכב",
     title: "כיסוי מלא לרכב — חובה, מקיף וצד ג׳",
@@ -63,7 +61,6 @@ export const INSURANCE_CONTENT: Record<string, InsuranceContent> = {
 
   home: {
     slug: "home",
-    num: "02 / 06",
     eyebrow: "ביטוח דירה ומשכנתא",
     topic: "ביטוח דירה",
     title: "הגנה על הבית, על הרכוש ועל המשפחה",
@@ -100,7 +97,6 @@ export const INSURANCE_CONTENT: Record<string, InsuranceContent> = {
 
   business: {
     slug: "business",
-    num: "03 / 06",
     eyebrow: "ביטוח עסקים",
     topic: "ביטוח עסקים",
     title: "פתרון אחד לכל החבויות והסיכונים של העסק",
@@ -139,7 +135,6 @@ export const INSURANCE_CONTENT: Record<string, InsuranceContent> = {
 
   life: {
     slug: "life",
-    num: "04 / 06",
     eyebrow: "ביטוחי חיים ובריאות",
     topic: "ביטוחי חיים ובריאות",
     title: "ביטחון פיננסי לכל שלב בחיים",
@@ -181,7 +176,6 @@ export const INSURANCE_CONTENT: Record<string, InsuranceContent> = {
 
   retirement: {
     slug: "retirement",
-    num: "05 / 06",
     eyebrow: "תכנון פרישה",
     topic: "תכנון פרישה",
     title: "פנסיה, גמל וקרנות השתלמות — תחת קורת גג אחת",
@@ -220,7 +214,6 @@ export const INSURANCE_CONTENT: Record<string, InsuranceContent> = {
 
   finance: {
     slug: "finance",
-    num: "06 / 06",
     eyebrow: "פיננסים",
     topic: "פיננסים",
     title: "ניהול תיקים, חיסכון והשקעות בעיניים מקצועיות",

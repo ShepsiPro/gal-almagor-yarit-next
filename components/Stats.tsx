@@ -1,8 +1,8 @@
 const SUPPORTING_STATS = [
-  { num: "4,200+", label: "לקוחות פעילים" },
-  { num: "23",     label: "חברות ביטוח שותפות" },
-  { num: "18",     label: "שנות פעילות בקבוצת גל אלמגור" },
-  { num: "97%",    label: "לקוחות שמחדשים" },
+  { num: "30,000+", label: "לקוחות פעילים" },
+  { num: "10",     label: "חברות ביטוח שותפות" },
+
+  { num: "98%",    label: "לקוחות שמחדשים" },
 ];
 
 export default function Stats() {

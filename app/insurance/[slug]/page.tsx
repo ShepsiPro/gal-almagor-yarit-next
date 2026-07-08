@@ -53,7 +53,6 @@ export default async function InsurancePage({ params }: PageProps) {
           </nav>
 
           <div className="info-hero__head">
-            <span className="info-hero__num">{content.num}</span>
             <span className="info-hero__eyebrow">{content.eyebrow}</span>
           </div>
 
@@ -127,7 +126,6 @@ export default async function InsurancePage({ params }: PageProps) {
                   {related.map((r) => (
                     <li key={r.slug}>
                       <Link href={`/insurance/${r.slug}`}>
-                        <span className="info-related__num">{r.num}</span>
                         <span className="info-related__title">
                           {r.eyebrow}
                         </span>
