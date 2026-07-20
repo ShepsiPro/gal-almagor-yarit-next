@@ -19,6 +19,12 @@ export default function Header() {
 
   return (
     <header className="header">
+      <div className="header__notice" role="note">
+        <span className="header__notice-text">
+          🚧 האתר בבנייה · המידע המוצג הוא לצורכי המחשה בלבד ואינו מחייב משפטית
+        </span>
+      </div>
+
       <div className="container header__inner">
         <Link href="/" className="header__brand" onClick={close}>
           <Image

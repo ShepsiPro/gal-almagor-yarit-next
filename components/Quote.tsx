@@ -21,7 +21,7 @@ function referrerIdFor(hostname: string): "195" | "196" {
   return "196";
 }
 
-export default function Quote() {
+export default function Quote({ leadHref = "#contact" }: { leadHref?: string } = {}) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [src, setSrc] = useState<string | null>(null);
 
@@ -69,7 +69,7 @@ export default function Quote() {
           <p className="section__lede">
             מלאו את הפרטים בסימולטור והמערכת תפיק עבורכם הצעת מחיר ראשונית, ללא
             התחייבות. מעדיפים ליווי אישי?{" "}
-            <a href="#contact" className="quote__link">השאירו פרטים</a> ונחזור אליכם.
+            <a href={leadHref} className="quote__link">השאירו פרטים</a> ונחזור אליכם.
           </p>
         </div>
 

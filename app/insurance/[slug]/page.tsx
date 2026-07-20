@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Contact from "@/components/Contact";
+import Quote from "@/components/Quote";
 import { INSURANCE_CONTENT, INSURANCE_SLUGS } from "@/lib/insurance-data";
+import { TEL_HREF } from "@/lib/site";
 
 type Params = { slug: string };
 type PageProps = { params: Promise<Params> };
@@ -38,6 +40,11 @@ export default async function InsurancePage({ params }: PageProps) {
     .map((slug) => INSURANCE_CONTENT[slug])
     .filter(Boolean);
 
+  // On the car page the bottom lead form is replaced by the live quote
+  // simulator, so the page's CTAs scroll to it (#quote) instead of #contact.
+  const hasSimulator = slug === "car";
+  const ctaHref = hasSimulator ? "#quote" : "#contact";
+
   return (
     <>
       <Header />
@@ -60,8 +67,8 @@ export default async function InsurancePage({ params }: PageProps) {
           <p className="info-hero__intro">{content.intro}</p>
 
           <div className="info-hero__ctas">
-            <a href="#contact" className="btn-primary">
-              שיחת ייעוץ ללא עלות
+            <a href={ctaHref} className="btn-primary">
+              {hasSimulator ? "לסימולטור הביטוח" : "שיחת ייעוץ ללא עלות"}
             </a>
             <Link href="/#categories" className="btn-link">
               <span className="btn-link__arrow">←</span>
@@ -111,7 +118,7 @@ export default async function InsurancePage({ params }: PageProps) {
                 סניף שלומי של גל אלמגור עומד לרשותכם — שיחת ייעוץ ללא עלות
                 והתחייבות, עם איש קשר אישי שמלווה אתכם לאורך כל הדרך.
               </p>
-              <a href="#contact" className="btn-primary info-aside__cta">
+              <a href={ctaHref} className="btn-primary info-aside__cta">
                 קבלת הצעה
               </a>
               <a href="tel:074-7506000" className="info-aside__phone">
@@ -140,7 +147,11 @@ export default async function InsurancePage({ params }: PageProps) {
         </div>
       </section>
 
-      <Contact defaultTopic={content.topic} />
+      {hasSimulator ? (
+        <Quote leadHref={TEL_HREF} />
+      ) : (
+        <Contact defaultTopic={content.topic} />
+      )}
       <Footer />
     </>
   );

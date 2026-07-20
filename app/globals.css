@@ -43,6 +43,20 @@ em { font-style: normal; color: var(--accent); }
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
+.header__notice {
+  background: var(--accent-warm);
+  color: var(--deep);
+  text-align: center;
+  padding: 6px 16px;
+  border-bottom: 1px solid rgba(20, 47, 77, 0.12);
+}
+.header__notice-text {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
 .header__inner {
   padding: 16px 48px;
   display: flex;
