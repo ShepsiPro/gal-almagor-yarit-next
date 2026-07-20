@@ -1,8 +1,18 @@
+import Image from "next/image";
+
 export default function About() {
   return (
     <section id="about" className="section section--bordered about">
       <div className="container about__grid">
-        <div className="about__art">צוות הסוכנות · שלומי</div>
+        <div className="about__art">
+          <Image
+            src="/assets/yarit-shield.png"
+            alt="סמל הסוכנות יערית"
+            className="about__shield"
+            width={299}
+            height={376}
+          />
+        </div>
         <div>
           <div className="eyebrow">אודותינו</div>
           <h2 className="section__title section__title--md about__title">

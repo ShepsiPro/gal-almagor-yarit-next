@@ -546,19 +546,15 @@ em { font-style: normal; color: var(--accent); }
   align-items: start;
 }
 .about__art {
-  aspect-ratio: 3/4;
-  background:
-    radial-gradient(at 30% 20%, rgba(0, 172, 255, 0.14) 0%, transparent 55%),
-    radial-gradient(at 80% 80%, rgba(255, 188, 125, 0.10) 0%, transparent 55%),
-    linear-gradient(180deg, var(--ink) 0%, var(--deep) 100%);
-  border-radius: 6px;
   display: grid;
   place-items: center;
-  color: rgba(255,255,255,0.5);
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  box-shadow: 0 8px 24px rgba(20,47,77,0.10);
+  align-self: center; /* center the emblem vertically against the text column */
+}
+.about__shield {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  display: block;
 }
 .about__title { line-height: 1.1; }
 .about__body {
@@ -1342,7 +1338,7 @@ a.crow__value[dir="ltr"] { text-align: right; }
 
   /* === About === */
   .about__grid { grid-template-columns: 1fr; gap: 36px; }
-  .about__art { aspect-ratio: 16/9; }
+  .about__shield { max-width: 190px; }
   .about__body { margin-top: 24px; font-size: 16px; }
   .about__pillars { margin-top: 32px; gap: 20px; }
 
@@ -1780,3 +1776,15 @@ html.a11y-noanim .site-root *::after {
    ============================================================ */
 /* Stacked paragraphs inside a single info-section body */
 .info-section__body + .info-section__body { margin-top: 16px; }
+/* Brand emblem atop the About page sidebar */
+.info-aside__emblem {
+  display: grid;
+  place-items: center;
+  margin-bottom: 4px;
+}
+.info-aside__emblem img {
+  width: 100%;
+  max-width: 150px;
+  height: auto;
+  display: block;
+}

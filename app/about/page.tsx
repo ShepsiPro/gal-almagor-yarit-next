@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -135,6 +136,15 @@ export default function AboutPage() {
           </div>
 
           <aside className="info-aside">
+            <div className="info-aside__emblem">
+              <Image
+                src="/assets/yarit-shield.png"
+                alt="סמל הסוכנות יערית"
+                width={299}
+                height={376}
+              />
+            </div>
+
             <div className="info-aside__card">
               <div className="info-aside__eyebrow">דברו איתנו</div>
               <h3 className="info-aside__title">
