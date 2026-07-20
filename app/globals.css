@@ -949,6 +949,9 @@ a.crow__value[dir="ltr"] { text-align: right; }
 .footer__logo {
   height: 50px;
   width: auto;
+  aspect-ratio: 678 / 246;
+  object-fit: contain;
+  align-self: flex-start; /* .footer__brandcol is a flex column; without this the img stretches to full column width */
   display: block;
 }
 .footer__tagline {
@@ -1770,3 +1773,10 @@ html.a11y-noanim .site-root *::after {
   html { scroll-behavior: auto; }
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
+
+/* ============================================================
+   About page — multi-paragraph spacing.
+   Reuses the shared .info-* layout from the insurance pages.
+   ============================================================ */
+/* Stacked paragraphs inside a single info-section body */
+.info-section__body + .info-section__body { margin-top: 16px; }

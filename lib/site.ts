@@ -35,7 +35,7 @@ export const MAIL_HREF = `mailto:${SITE.email}`;
 
 // Primary site navigation (homepage anchors).
 export const NAV_LINKS = [
-  { href: "/#about", label: "אודות" },
+  { href: "/about", label: "אודות" },
   { href: "/#why", label: "למה אנחנו" },
   { href: "/#partners", label: "חברות הביטוח" },
   { href: "/#quote", label: "הצעת מחיר" },

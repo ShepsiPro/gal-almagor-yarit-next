@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 const NAV_LINKS = [
-  { href: "/#about", label: "אודות" },
+  { href: "/about", label: "אודות" },
   { href: "/#categories", label: "תחומי ביטוח" },
   { href: "/#quote", label: "הצעת מחיר" },
   { href: "/#why", label: "למה אנחנו" },
@@ -29,7 +29,7 @@ export default function Header() {
         <Link href="/" className="header__brand" onClick={close}>
           <Image
             src="/assets/yarit-logo.png"
-            alt="יערית · סוכנות לביטוח"
+            alt="יערית · מקבוצת גל אלמגור"
             className="header__logo-img"
             width={678}
             height={246}

@@ -20,7 +20,7 @@ export default function Footer() {
         <div className="footer__brandcol">
           <Image
             src="/assets/yarit-logo-white.png"
-            alt="יערית · סוכנות לביטוח"
+            alt="יערית · מקבוצת גל אלמגור"
             className="footer__logo"
             width={678}
             height={246}
@@ -29,6 +29,9 @@ export default function Footer() {
           <div className="footer__group-row">
             חבר ב<span className="footer__group">{SITE.group}</span>
           </div>
+          <p className="footer__tagline" style={{ fontSize: "0.8rem", marginTop: "0.35rem" }}>
+            גל אלמגור סוכנות לביטוח 2008 בע״מ
+          </p>
         </div>
 
         {/* Site navigation */}
