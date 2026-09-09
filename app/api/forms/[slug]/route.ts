@@ -11,8 +11,10 @@ import {
   MAX_TOTAL_BYTES,
   MAX_FILES_PER_FIELD,
   allFields,
+  conflictingOptions,
   formatBytes,
   getForm,
+  isFieldVisible,
   isValidIsraeliId,
   type FormField,
 } from "@/lib/forms";
@@ -85,7 +87,23 @@ export async function POST(
   let customerName = "";
   let customerPhone = "";
 
+  // Snapshot the submitted answers BEFORE validating, so conditional visibility
+  // is evaluated against the same state the browser evaluated it against. Doing
+  // it field-by-field would judge a field against a half-built picture and could
+  // demand something the customer was never shown.
+  const answered: Record<string, string | string[]> = {};
   for (const field of allFields(form)) {
+    if (field.type === "file" || field.type === "statement") continue;
+    const vals = data
+      .getAll(field.name)
+      .map((v) => (typeof v === "string" ? v.trim() : ""))
+      .filter(Boolean);
+    answered[field.name] = vals.length > 1 ? vals : (vals[0] ?? "");
+  }
+
+  for (const field of allFields(form)) {
+    if (field.type === "statement") continue;
+    if (!isFieldVisible(form, field, answered)) continue;
     if (field.type === "file") {
       const files = data
         .getAll(field.name)
@@ -144,6 +162,24 @@ export async function POST(
     }
     if (field.type === "email" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
       return bad(`כתובת הדוא״ל בשדה "${field.label}" אינה תקינה`);
+    }
+    if (field.type === "number") {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return bad(`הערך בשדה "${field.label}" אינו מספר`);
+      if (field.min !== undefined && n < field.min) {
+        return bad(`הערך בשדה "${field.label}" חייב להיות ${field.min} ומעלה`);
+      }
+      if (field.max !== undefined && n > field.max) {
+        return bad(`הערך בשדה "${field.label}" חייב להיות עד ${field.max}`);
+      }
+    }
+    if (field.exclusive) {
+      for (const chosen of values) {
+        const clash = conflictingOptions(field, chosen).find((o) => values.includes(o));
+        if (clash) {
+          return bad(`לא ניתן לבחור גם "${chosen}" וגם "${clash}" בשדה "${field.label}"`);
+        }
+      }
     }
 
     if (field.type === "email" && !replyTo) replyTo = value;

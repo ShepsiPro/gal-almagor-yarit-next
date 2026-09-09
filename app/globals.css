@@ -2070,3 +2070,16 @@ input.fform__file-input {
 }
 /* Success card shown in place of the homepage contact form */
 .fform__done--inline { margin-top: 0; padding: 44px 28px; }
+
+/* Legal statement block inside a form — text the customer reads, not fills. */
+.fform__statement {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 16px 18px;
+  font-size: 14px;
+  line-height: 1.75;
+  color: #33475f;
+}
+.fform__statement p { margin: 0 0 12px; }
+.fform__statement p:last-child { margin-bottom: 0; }

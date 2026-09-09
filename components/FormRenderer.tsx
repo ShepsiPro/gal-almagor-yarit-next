@@ -7,7 +7,9 @@ import {
   MAX_FILE_BYTES,
   MAX_TOTAL_BYTES,
   allFields,
+  conflictingOptions,
   formatBytes,
+  isFieldVisible,
   isValidIsraeliId,
   type FormDef,
   type FormField,
@@ -103,12 +105,18 @@ export default function FormRenderer({
     setErrors((e) => (e[name] ? { ...e, [name]: "" } : e));
   }
 
-  function toggleInList(name: string, option: string) {
+  function toggleInList(field: FormField, option: string) {
+    const name = field.name;
     const current = Array.isArray(values[name]) ? (values[name] as string[]) : [];
-    setValue(
-      name,
-      current.includes(option) ? current.filter((o) => o !== option) : [...current, option],
-    );
+    if (current.includes(option)) {
+      setValue(name, current.filter((o) => o !== option));
+      return;
+    }
+    // Selecting an option drops anything it cannot be combined with, rather
+    // than letting the customer build an invalid pair and only learning at
+    // submit (מקיף and צד ג׳ are alternatives, not additions).
+    const conflicts = conflictingOptions(field, option);
+    setValue(name, [...current.filter((o) => !conflicts.includes(o)), option]);
   }
 
   async function addFiles(field: FormField, picked: FileList | null) {
@@ -131,6 +139,8 @@ export default function FormRenderer({
   function validate(): Record<string, string> {
     const next: Record<string, string> = {};
     for (const f of fields) {
+      // A field the customer was never shown can never be required of them.
+      if (f.type === "statement" || !isFieldVisible(form, f, values)) continue;
       const raw = values[f.name];
       const value = Array.isArray(raw) ? raw.join(",") : (raw ?? "").trim();
 
@@ -155,6 +165,12 @@ export default function FormRenderer({
         next[f.name] = "כתובת דוא״ל אינה תקינה";
       if (f.type === "tel" && value.replace(/\D/g, "").length < 9)
         next[f.name] = "מספר טלפון אינו תקין";
+      if (f.type === "number") {
+        const n = Number(value);
+        if (!Number.isFinite(n)) next[f.name] = "יש להזין מספר";
+        else if (f.min !== undefined && n < f.min) next[f.name] = `יש להזין ערך של ${f.min} ומעלה`;
+        else if (f.max !== undefined && n > f.max) next[f.name] = `יש להזין ערך עד ${f.max}`;
+      }
     }
     return next;
   }
@@ -182,6 +198,7 @@ export default function FormRenderer({
     const body = new FormData();
     body.append("_hp", (values._hp as string) ?? "");
     for (const f of fields) {
+      if (f.type === "statement" || !isFieldVisible(form, f, values)) continue;
       if (f.type === "file") {
         for (const file of files[f.name] ?? []) body.append(f.name, file, file.name);
         continue;
@@ -235,7 +252,10 @@ export default function FormRenderer({
 
   return (
     <form className="fform" ref={formRef} onSubmit={onSubmit} noValidate>
-      {form.sections.map((section, si) => (
+      {form.sections.map((section, si) => {
+        const shown = section.fields.filter((f) => isFieldVisible(form, f, values));
+        if (!shown.length) return null;
+        return (
         <section className="fform__section" key={section.title}>
           <div className="fform__section-head">
             <span className="fform__section-num">{String(si + 1).padStart(2, "0")}</span>
@@ -248,7 +268,7 @@ export default function FormRenderer({
           </div>
 
           <div className="fform__grid">
-            {section.fields.map((field) => (
+            {shown.map((field) => (
               <Field
                 key={field.name}
                 field={field}
@@ -263,7 +283,8 @@ export default function FormRenderer({
             ))}
           </div>
         </section>
-      ))}
+        );
+      })}
 
       {/* Honeypot — hidden from people, irresistible to bots. */}
       <input
@@ -318,7 +339,7 @@ function Field({
   files: File[];
   error?: string;
   onValue: (name: string, value: string) => void;
-  onToggle: (name: string, option: string) => void;
+  onToggle: (field: FormField, option: string) => void;
   onFiles: (field: FormField, list: FileList | null) => void;
   onRemoveFile: (name: string, index: number) => void;
 }) {
@@ -341,6 +362,18 @@ function Field({
       {error}
     </p>
   );
+
+  if (field.type === "statement") {
+    return (
+      <div className="fform__cell fform__cell--full" data-field={field.name}>
+        <div className="fform__statement">
+          {(field.body ?? "").split("\n\n").map((para, i) => (
+            <p key={i}>{para}</p>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   if (field.type === "consent") {
     return (
@@ -426,7 +459,7 @@ function Field({
                   type={multi ? "checkbox" : "radio"}
                   name={field.name}
                   checked={checked}
-                  onChange={() => (multi ? onToggle(field.name, opt) : onValue(field.name, opt))}
+                  onChange={() => (multi ? onToggle(field, opt) : onValue(field.name, opt))}
                 />
                 <span>{opt}</span>
               </label>
@@ -481,6 +514,8 @@ function Field({
                 ? "tel"
                 : undefined
           }
+          min={field.min}
+          max={field.max}
           dir={field.type === "email" ? "ltr" : undefined}
           value={text}
           placeholder={field.placeholder}
