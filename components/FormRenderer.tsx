@@ -58,10 +58,17 @@ async function compressImage(file: File): Promise<File> {
 export default function FormRenderer({
   form,
   prefill = {},
+  locked = [],
+  prefillToken,
 }: {
   form: FormDef;
   prefill?: Record<string, string>;
+  /** Field names the agency filled in and the customer may not change. */
+  locked?: string[];
+  /** The signed token those locks came from, replayed with the submission. */
+  prefillToken?: string;
 }) {
+  const lockedSet = useMemo(() => new Set(locked), [locked]);
   const fields = useMemo(() => allFields(form), [form]);
   const [values, setValues] = useState<Values>({});
   const [files, setFiles] = useState<FileMap>({});
@@ -197,6 +204,7 @@ export default function FormRenderer({
 
     const body = new FormData();
     body.append("_hp", (values._hp as string) ?? "");
+    if (prefillToken) body.append("_prefill", prefillToken);
     for (const f of fields) {
       if (f.type === "statement" || !isFieldVisible(form, f, values)) continue;
       if (f.type === "file") {
@@ -272,6 +280,7 @@ export default function FormRenderer({
               <Field
                 key={field.name}
                 field={field}
+                locked={lockedSet.has(field.name)}
                 value={values[field.name]}
                 files={files[field.name] ?? []}
                 error={errors[field.name]}
@@ -326,6 +335,7 @@ export default function FormRenderer({
 
 function Field({
   field,
+  locked,
   value,
   files,
   error,
@@ -335,6 +345,7 @@ function Field({
   onRemoveFile,
 }: {
   field: FormField;
+  locked: boolean;
   value: string | string[] | undefined;
   files: File[];
   error?: string;
@@ -350,7 +361,7 @@ function Field({
 
   const cell = `field fform__cell${field.half ? " fform__cell--half" : ""}${
     error ? " fform__cell--error" : ""
-  }`;
+  }${locked ? " fform__cell--locked" : ""}`;
 
   const help = field.help && !error && (
     <p className="fform__help" id={`${id}-help`}>
@@ -458,6 +469,7 @@ function Field({
                 <input
                   type={multi ? "checkbox" : "radio"}
                   name={field.name}
+                  disabled={locked}
                   checked={checked}
                   onChange={() => (multi ? onToggle(field, opt) : onValue(field.name, opt))}
                 />
@@ -476,13 +488,15 @@ function Field({
     <div className={cell} data-field={field.name}>
       <label htmlFor={id}>
         {field.label}
-        {field.required && <span className="fform__req" aria-hidden="true">*</span>}
+        {field.required && !locked && <span className="fform__req" aria-hidden="true">*</span>}
+        {locked && <span className="fform__lock">מולא על ידי הסוכנות</span>}
       </label>
 
       {field.type === "textarea" ? (
         <textarea
           id={id}
           value={text}
+          readOnly={locked}
           placeholder={field.placeholder}
           onChange={(e) => onValue(field.name, e.target.value)}
           aria-invalid={Boolean(error)}
@@ -492,6 +506,7 @@ function Field({
         <select
           id={id}
           value={text}
+          disabled={locked}
           onChange={(e) => onValue(field.name, e.target.value)}
           aria-invalid={Boolean(error)}
           aria-describedby={describedBy}
@@ -516,6 +531,7 @@ function Field({
           }
           min={field.min}
           max={field.max}
+          readOnly={locked}
           dir={field.type === "email" ? "ltr" : undefined}
           value={text}
           placeholder={field.placeholder}

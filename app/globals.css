@@ -2083,3 +2083,25 @@ input.fform__file-input {
 }
 .fform__statement p { margin: 0 0 12px; }
 .fform__statement p:last-child { margin-bottom: 0; }
+
+/* A field the agency filled in and the customer may not change. */
+.fform__lock {
+  margin-inline-start: 8px;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 1px 6px;
+}
+.fform__cell--locked input,
+.fform__cell--locked select,
+.fform__cell--locked textarea {
+  background: #eef2f6;
+  color: var(--muted);
+  cursor: not-allowed;
+  border-style: dashed;
+}
+.fform__cell--locked .fform__option { opacity: 0.6; cursor: not-allowed; }

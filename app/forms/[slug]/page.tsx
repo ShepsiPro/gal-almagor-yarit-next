@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import FormRenderer from "@/components/FormRenderer";
 import { FORM_SLUGS, getForm } from "@/lib/forms";
 import { SITE, TEL_HREF } from "@/lib/site";
+import { verifyPrefillToken } from "@/lib/prefill";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -46,6 +47,16 @@ export default async function FormPage({ params, searchParams }: PageProps) {
     if (value) prefill[key] = value.slice(0, 120);
   }
 
+  // A signed `?p=` token is the agency re-sending this form with answers already
+  // filled, some of them locked. It wins over the loose query parameters above,
+  // which anyone can type. The token itself is passed on to the renderer so it
+  // travels back with the submission and the API can re-check the locks — a
+  // lock enforced only in the browser is decoration.
+  const rawToken = Array.isArray(query.p) ? query.p[0] : query.p;
+  const sent = verifyPrefillToken(rawToken);
+  const locked = sent && sent.slug === slug ? sent.locked : [];
+  if (sent && sent.slug === slug) Object.assign(prefill, sent.values);
+
   return (
     <>
       <Header />
@@ -69,7 +80,12 @@ export default async function FormPage({ params, searchParams }: PageProps) {
             ונשלים יחד.
           </p>
 
-          <FormRenderer form={form} prefill={prefill} />
+          <FormRenderer
+            form={form}
+            prefill={prefill}
+            locked={locked}
+            prefillToken={sent && sent.slug === slug ? rawToken : undefined}
+          />
         </div>
       </main>
 

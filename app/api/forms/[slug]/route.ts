@@ -20,6 +20,7 @@ import {
 } from "@/lib/forms";
 import { renderEmail, sendMail, type MailAttachment, type Row } from "@/lib/mailer";
 import { mslahtkConfigured, submitLead } from "@/lib/mslahtk";
+import { verifyPrefillToken } from "@/lib/prefill";
 
 export const runtime = "nodejs";
 
@@ -101,6 +102,19 @@ export async function POST(
     answered[field.name] = vals.length > 1 ? vals : (vals[0] ?? "");
   }
 
+  // If the agency sent this form pre-filled with locked answers, the signed
+  // token is the authority on those answers — not whatever arrived in the body.
+  // The browser renders them read-only, but a read-only input is a suggestion:
+  // anyone can POST here directly. Overriding (rather than rejecting) also means
+  // a stale tab or a browser that ignored `readOnly` still files a correct
+  // declaration instead of an error the customer cannot act on.
+  const sent = verifyPrefillToken(data.get("_prefill") as string | null);
+  let resentFromLeadId: string | undefined;
+  if (sent && sent.slug === slug) {
+    resentFromLeadId = sent.fromLeadId;
+    for (const name of sent.locked) answered[name] = sent.values[name];
+  }
+
   for (const field of allFields(form)) {
     if (field.type === "statement") continue;
     if (!isFieldVisible(form, field, answered)) continue;
@@ -141,15 +155,21 @@ export async function POST(
     if (field.type === "consent") {
       const agreed = data.get(field.name) === "on";
       if (!agreed) return bad(`יש לאשר: ${field.label}`);
-      rows.push({ label: "אישור מסירת פרטים", value: "אושר" });
+      // Use the statement's own wording, not a generic label: this form carries
+      // eight separate declarations and an email that says "אישור" eight times
+      // is no record of which one was actually agreed to.
+      rows.push({
+        label: field.label.length > 90 ? `${field.label.slice(0, 90)}…` : field.label,
+        value: "אושר",
+      });
       continue;
     }
 
-    // Multi-select checkbox groups arrive as repeated entries.
-    const values = data
-      .getAll(field.name)
-      .map((v) => (typeof v === "string" ? v.trim() : ""))
-      .filter(Boolean);
+    // Multi-select checkbox groups arrive as repeated entries. `answered`
+    // already carries the locked overrides, so read from it rather than from
+    // the raw body.
+    const raw = answered[field.name];
+    const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
     const value = values.join(", ");
 
     if (!value) {
@@ -191,6 +211,10 @@ export async function POST(
 
   const submitted = new Date().toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" });
   rows.push({ label: "התקבל בתאריך", value: submitted });
+  if (resentFromLeadId) {
+    rows.push({ label: "עדכון לפנייה קודמת", value: resentFromLeadId });
+    answers._resentFrom = resentFromLeadId;
+  }
 
   // Push into Mslahtk first so the email can report whether the customer card
   // was created. submitLead never throws — if the CRM is down or unconfigured
