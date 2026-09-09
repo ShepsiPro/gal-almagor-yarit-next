@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
 const PHONE_DISPLAY = "053-337-7779";
 const PHONE_E164 = "+972533377779";
@@ -41,9 +41,32 @@ const TOPICS = [
 ];
 
 export default function Contact({ defaultTopic = "" }: { defaultTopic?: string } = {}) {
-  function onSubmit(e: FormEvent<HTMLFormElement>) {
+  const [status, setStatus] = useState<"idle" | "sending" | "done">("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    alert("תודה! נחזור אליך בקרוב.");
+    setError(null);
+    const payload = Object.fromEntries(new FormData(e.currentTarget).entries());
+
+    setStatus("sending");
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        setError(json.error ?? "השליחה נכשלה. נסו שוב או התקשרו אלינו.");
+        setStatus("idle");
+        return;
+      }
+      setStatus("done");
+    } catch {
+      setError("אין חיבור לשרת. בדקו את הרשת ונסו שוב.");
+      setStatus("idle");
+    }
   }
 
   return (
@@ -82,35 +105,51 @@ export default function Contact({ defaultTopic = "" }: { defaultTopic?: string }
           </div>
         </div>
 
+        {status === "done" ? (
+          <div className="fform__done fform__done--inline" role="status">
+            <div className="fform__done-mark" aria-hidden="true">✓</div>
+            <h3 className="fform__done-title">קיבלנו את הפנייה</h3>
+            <p className="fform__done-body">
+              נחזור אליכם תוך יום עסקים אחד. אם זה דחוף — אפשר להתקשר אלינו ישירות.
+            </p>
+          </div>
+        ) : (
         <form className="form" onSubmit={onSubmit} noValidate>
           <div className="field">
             <label htmlFor="cf-name">שם מלא</label>
-            <input id="cf-name" type="text" placeholder="ישראל ישראלי" />
+            <input id="cf-name" name="name" type="text" placeholder="ישראל ישראלי" autoComplete="name" required />
           </div>
           <div className="field">
             <label htmlFor="cf-tel">טלפון</label>
-            <input id="cf-tel" type="tel" placeholder="050-0000000" />
+            <input id="cf-tel" name="phone" type="tel" placeholder="050-0000000" autoComplete="tel" required />
           </div>
           <div className="field">
             <label htmlFor="cf-email">דוא״ל</label>
-            <input id="cf-email" type="email" placeholder="you@example.com" />
+            <input id="cf-email" name="email" type="email" placeholder="you@example.com" autoComplete="email" dir="ltr" />
           </div>
           <div className="field">
             <label htmlFor="cf-topic">תחום הביטוח</label>
-            <select key={defaultTopic} id="cf-topic" defaultValue={defaultTopic}>
+            <select key={defaultTopic} id="cf-topic" name="topic" defaultValue={defaultTopic}>
               <option value="" disabled>בחרו תחום…</option>
               {TOPICS.map((t) => <option key={t}>{t}</option>)}
             </select>
           </div>
           <div className="field">
             <label htmlFor="cf-msg">הודעה (אופציונלי)</label>
-            <textarea id="cf-msg" placeholder="ספרו בקצרה על הצורך…" />
+            <textarea id="cf-msg" name="message" placeholder="ספרו בקצרה על הצורך…" />
           </div>
-          <button type="submit" className="form__submit">
-            שליחה לסוכנות
+
+          {/* Honeypot — hidden from people, irresistible to bots. */}
+          <input type="text" name="_hp" tabIndex={-1} autoComplete="off" aria-hidden="true" className="fform__hp" />
+
+          {error && <div className="fform__alert" role="alert">{error}</div>}
+
+          <button type="submit" className="form__submit" disabled={status === "sending"}>
+            {status === "sending" ? "שולח…" : "שליחה לסוכנות"}
           </button>
           <div className="form__note">הפרטים מוגנים ונשמרים אצלנו בלבד</div>
         </form>
+        )}
       </div>
 
       <div className="container contact__map-wrap">

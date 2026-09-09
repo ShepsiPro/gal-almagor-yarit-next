@@ -1788,3 +1788,285 @@ html.a11y-noanim .site-root *::after {
   height: auto;
   display: block;
 }
+
+/* ============================================================
+   Standalone forms — /forms and /forms/<slug>
+   A fill-link page a customer opens from WhatsApp: one column,
+   sectioned card layout, thumb-friendly controls on mobile.
+   ============================================================ */
+.fpage {
+  padding: 56px 48px 96px;
+  background: var(--surface);
+}
+.fpage__inner { max-width: 780px; margin: 0 auto; }
+.fpage__title {
+  margin: 12px 0 0;
+  font-size: clamp(28px, 4.6vw, 42px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.12;
+}
+.fpage__intro {
+  margin: 18px 0 0;
+  font-size: 17px;
+  line-height: 1.72;
+  color: var(--muted);
+}
+.fpage__meta { margin: 14px 0 0; font-size: 14px; color: var(--muted); }
+.fpage__meta a { color: var(--accent); font-weight: 700; text-decoration: none; }
+.fpage__meta a:hover { text-decoration: underline; opacity: 1; }
+
+.fform { margin-top: 36px; display: flex; flex-direction: column; gap: 20px; }
+.fform__section {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 32px;
+  box-shadow: 0 12px 32px rgba(20, 47, 77, 0.05);
+}
+.fform__section-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 22px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+.fform__section-num {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.fform__section-title { margin: 5px 0 0; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+.fform__section-desc { margin: 8px 0 0; font-size: 14px; line-height: 1.65; color: var(--muted); }
+
+.fform__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.fform__cell { grid-column: 1 / -1; }
+.fform__cell--half { grid-column: auto; }
+.fform__cell--full { grid-column: 1 / -1; }
+.fform__cell--error input,
+.fform__cell--error select,
+.fform__cell--error textarea { border-color: #C0392B; background: #FDF3F2; }
+
+.fform__req { color: #C0392B; margin-inline-start: 4px; }
+.fform__optional {
+  margin-inline-start: 8px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+.fform__help { margin: 7px 0 0; font-size: 12px; line-height: 1.55; color: var(--muted); }
+.fform__error { margin: 7px 0 0; font-size: 12px; font-weight: 700; color: #C0392B; }
+
+/* Radio / checkbox groups rendered as selectable chips */
+.fform__group-label {
+  display: block;
+  font-size: 12px;
+  color: var(--ink);
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+.fform__options { display: flex; flex-wrap: wrap; gap: 10px; }
+.fform__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 16px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color .2s, background .2s, color .2s;
+}
+.fform__option:hover { border-color: var(--accent); }
+.fform__option.is-on { border-color: var(--accent); background: #fff; color: var(--accent); font-weight: 700; }
+.fform__option input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+
+/* File picker */
+/* The real <input type=file>, hidden behind the .fform__drop label. Selector is
+   `input.fform__file-input` so it out-ranks `.field input { width: 100% }` —
+   left at full width it is an absolutely-positioned box wider than its RTL
+   container, which pushes a horizontal scrollbar onto the page. */
+input.fform__file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.fform__drop {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+.fform__drop:hover { border-color: var(--accent); background: #fff; }
+.fform__drop-icon {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--accent);
+  font-size: 17px;
+}
+.fform__drop-text { display: flex; flex-direction: column; gap: 3px; font-size: 14px; font-weight: 700; }
+.fform__drop-hint { font-size: 11px; font-weight: 400; color: var(--muted); font-style: normal; }
+
+.fform__files { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.fform__file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  font-size: 13px;
+}
+.fform__file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fform__file-size { color: var(--muted); font-size: 12px; flex: none; }
+.fform__file-remove {
+  flex: none;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+  line-height: 1;
+  border-radius: 3px;
+}
+.fform__file-remove:hover { color: #C0392B; background: #FDF3F2; }
+
+.fform__consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+  cursor: pointer;
+}
+.fform__consent input { accent-color: var(--accent); width: 18px; height: 18px; margin-top: 2px; flex: none; }
+
+/* Visually hidden without the off-screen-left trick: in an RTL document a
+   negative `left` inflates scrollWidth and gives the page a horizontal scroll. */
+.fform__hp {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.fform__meter { font-size: 12px; color: var(--muted); text-align: center; }
+.fform__alert {
+  padding: 14px 18px;
+  border: 1px solid #E8B4AE;
+  background: #FDF3F2;
+  color: #A0301F;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.fform__submit { margin-top: 0; }
+.fform__submit:disabled { background: var(--muted); cursor: progress; }
+
+/* Success state */
+.fform__done {
+  margin-top: 36px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 56px 32px;
+  text-align: center;
+  box-shadow: 0 12px 32px rgba(20, 47, 77, 0.05);
+}
+.fform__done-mark {
+  width: 62px;
+  height: 62px;
+  margin: 0 auto 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 28px;
+}
+.fform__done-title { margin: 0; font-size: 27px; font-weight: 700; letter-spacing: -0.01em; }
+.fform__done-body { margin: 14px auto 0; max-width: 440px; font-size: 16px; line-height: 1.7; color: var(--muted); }
+.fform__done-actions { margin-top: 28px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+/* Internal link builder — /forms */
+.flinks { margin-top: 36px; }
+.flinks__prefill {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 28px;
+}
+.flinks__list { list-style: none; margin: 20px 0 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.flinks__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 24px 28px;
+}
+.flinks__title { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; margin-top: 6px; }
+.flinks__url { display: block; margin-top: 6px; font-size: 12px; color: var(--muted); }
+.flinks__actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.flinks__actions .map-btn { cursor: pointer; font-family: inherit; }
+
+@media (max-width: 768px) {
+  .fpage { padding: 36px 20px 72px; }
+  .fform__section { padding: 24px 20px; }
+  .fform__grid { grid-template-columns: 1fr; gap: 18px; }
+  .fform__cell--half { grid-column: 1 / -1; }
+  .fform__section-head { gap: 12px; }
+  .fform__done { padding: 44px 22px; }
+  .flinks__prefill { grid-template-columns: 1fr; padding: 22px 20px; }
+  .flinks__item { padding: 20px; }
+  .flinks__actions { width: 100%; }
+  .flinks__actions .map-btn { flex: 1; justify-content: center; }
+  /* iOS zooms the page when a focused input is under 16px */
+  .fform input, .fform select, .fform textarea { font-size: 16px; }
+}
+/* Success card shown in place of the homepage contact form */
+.fform__done--inline { margin-top: 0; padding: 44px 28px; }
