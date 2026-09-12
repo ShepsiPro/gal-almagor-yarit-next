@@ -2105,3 +2105,101 @@ input.fform__file-input {
   border-style: dashed;
 }
 .fform__cell--locked .fform__option { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Back-office ──────────────────────────────────────────────────────────
+   Deliberately plainer than the public site: this is a work surface an agent
+   reads forty rows of, not a page that has to sell anything. */
+.adm { min-height: 100vh; background: #f6f7f9; }
+.adm--center { display: grid; place-items: center; padding: 48px 20px; }
+.adm__bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 12px 20px; background: #fff; border-bottom: 1px solid #e4e7ec;
+  position: sticky; top: 0; z-index: 10;
+}
+.adm__brand { font-weight: 700; color: #304054; text-decoration: none; }
+.adm__who { font-size: 13px; color: #667085; }
+.adm__main { max-width: 960px; margin: 0 auto; padding: 24px 20px 80px; }
+.adm__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+.adm__title { font-size: 22px; font-weight: 700; color: #101828; margin: 0 0 4px; }
+.adm__sectiontitle { font-size: 15px; font-weight: 700; color: #304054; margin: 0 0 10px; }
+.adm__muted { color: #667085; font-size: 14px; margin: 0; }
+.adm__count { color: #667085; font-size: 14px; white-space: nowrap; }
+.adm__ltr { direction: ltr; text-align: right; }
+.adm__err { color: #b42318; font-size: 14px; margin-top: 12px; }
+.adm__link { color: #1849a9; font-weight: 600; text-decoration: none; }
+.adm__link:hover { text-decoration: underline; }
+.adm__back { display: inline-block; margin-bottom: 14px; color: #667085; font-size: 14px; text-decoration: none; }
+.adm__back:hover { color: #304054; }
+
+.adm__card { background: #fff; border: 1px solid #e4e7ec; border-radius: 12px; padding: 20px; }
+.adm__card--warn { border-color: #fda29b; background: #fffbfa; }
+.adm__card--tight { padding: 14px 16px; margin-bottom: 16px; }
+
+.adm__tablewrap { overflow-x: auto; background: #fff; border: 1px solid #e4e7ec; border-radius: 12px; }
+.adm__table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.adm__table th, .adm__table td { padding: 12px 14px; text-align: right; border-bottom: 1px solid #f2f4f7; white-space: nowrap; }
+.adm__table th { font-weight: 600; color: #667085; font-size: 13px; background: #fcfcfd; }
+.adm__table tr:last-child td { border-bottom: 0; }
+.adm__rowend { text-align: left; }
+
+.adm__btn {
+  display: inline-block; padding: 8px 14px; border-radius: 8px; border: 1px solid #d0d5dd;
+  background: #fff; color: #344054; font-size: 14px; font-weight: 600;
+  text-decoration: none; cursor: pointer;
+}
+.adm__btn:hover { background: #f9fafb; }
+.adm__btn--primary { background: #304054; border-color: #304054; color: #fff; }
+.adm__btn--primary:hover { background: #1d2939; }
+.adm__btn--sm { padding: 5px 10px; font-size: 13px; }
+.adm__btn:disabled { opacity: .55; cursor: default; }
+.adm__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.adm__pager { display: flex; align-items: center; gap: 14px; justify-content: center; margin-top: 18px; }
+
+.adm__contact { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.adm__chip {
+  padding: 5px 12px; border-radius: 999px; background: #fff; border: 1px solid #e4e7ec;
+  font-size: 13px; color: #344054; text-decoration: none;
+}
+
+.adm__section { background: #fff; border: 1px solid #e4e7ec; border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+.adm__dl { margin: 0; }
+.adm__dlrow {
+  display: grid; grid-template-columns: minmax(140px, 34%) 1fr; gap: 12px;
+  padding: 8px 0; border-bottom: 1px solid #f2f4f7; font-size: 14px;
+}
+.adm__dlrow:last-child { border-bottom: 0; }
+.adm__dl dt { color: #667085; }
+.adm__dl dd { margin: 0; color: #101828; word-break: break-word; }
+.adm__yes { color: #067647; font-weight: 600; }
+
+.adm__files { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.adm__file { display: block; text-decoration: none; color: inherit; border: 1px solid #e4e7ec; border-radius: 10px; overflow: hidden; background: #fcfcfd; }
+.adm__file:hover { border-color: #98a2b3; }
+.adm__filethumb { display: block; width: 100%; height: 120px; object-fit: cover; background: #f2f4f7; }
+.adm__filethumb--doc { display: grid; place-items: center; font-weight: 700; color: #667085; }
+.adm__filemeta { display: block; padding: 8px 10px; }
+.adm__filename { display: block; font-size: 13px; font-weight: 600; color: #344054; word-break: break-word; }
+
+.adm__picklist { list-style: none; margin: 0; padding: 0; }
+.adm__pick {
+  display: grid; grid-template-columns: auto minmax(120px, 30%) 1fr auto; gap: 10px;
+  align-items: center; padding: 9px 8px; border-radius: 8px; cursor: pointer; font-size: 14px;
+}
+.adm__pick:hover { background: #f9fafb; }
+.adm__pick.is-open { background: #f0f9ff; }
+.adm__picklabel { color: #344054; font-weight: 600; }
+.adm__pickvalue { color: #667085; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm__pickstate { font-size: 12px; color: #667085; white-space: nowrap; }
+.adm__pick.is-open .adm__pickstate { color: #026aa2; font-weight: 600; }
+
+.adm__stickybar {
+  position: sticky; bottom: 0; display: flex; gap: 8px; flex-wrap: wrap;
+  padding: 12px; background: #fff; border: 1px solid #e4e7ec; border-radius: 12px; margin-top: 14px;
+}
+.adm__linkout { margin-top: 10px; font-size: 12px; color: #667085; word-break: break-all; }
+
+@media (max-width: 640px) {
+  .adm__dlrow { grid-template-columns: 1fr; gap: 2px; }
+  .adm__pick { grid-template-columns: auto 1fr; }
+  .adm__pickvalue, .adm__pickstate { grid-column: 2; }
+}

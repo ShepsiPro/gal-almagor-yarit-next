@@ -217,3 +217,68 @@ export async function uploadLeadFiles(leadId: string, files: LeadFile[]): Promis
   }
   return out;
 }
+
+// ── Reading submissions back ───────────────────────────────────────────────
+//
+// The other direction: Mslahtk stores `fields` as opaque keys, because it has
+// no idea what an insurance declaration is. This site holds the map — labels,
+// section order, conditional logic — so the back-office renders from here.
+//
+// Needs `leads:fields` on the token (preset `site-backend`).
+
+export type StoredFile = {
+  id: string;
+  url: string;
+  kind: string;
+  mimeType: string | null;
+  filename: string | null;
+  size: number | null;
+  createdAt: string;
+};
+
+export type StoredLead = {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  status: string;
+  category: string | null;
+  ctaId: string | null;
+  ctaLabel: string | null;
+  fields: Record<string, string>;
+  createdAt: string;
+};
+
+export type StoredLeadDetail = {
+  lead: StoredLead;
+  customer: { id: string; name: string | null; phone: string | null; email: string | null } | null;
+  files: StoredFile[];
+};
+
+async function readJson<T>(path: string, timeoutMs = 10_000): Promise<T> {
+  const res = await fetch(`${API_BASE}/service/sites/${PROJECT_ID}${path}`, {
+    headers: { Authorization: `Bearer ${SERVICE_TOKEN}` },
+    signal: AbortSignal.timeout(timeoutMs),
+    cache: "no-store",
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = (json as { message?: string }).message || `Mslahtk responded ${res.status}`;
+    throw new Error(msg);
+  }
+  return json as T;
+}
+
+/** A page of submissions, newest first. */
+export function listStoredLeads(opts: { limit?: number; offset?: number } = {}) {
+  const q = new URLSearchParams();
+  q.set("limit", String(Math.min(Math.max(opts.limit ?? 50, 1), 100)));
+  if (opts.offset) q.set("offset", String(opts.offset));
+  return readJson<{ items: StoredLead[]; total: number; limit: number; offset: number }>(
+    `/leads?${q.toString()}`,
+  );
+}
+
+export function getStoredLead(leadId: string) {
+  return readJson<StoredLeadDetail>(`/leads/${encodeURIComponent(leadId)}`);
+}

@@ -162,6 +162,10 @@ export async function POST(
         label: field.label.length > 90 ? `${field.label.slice(0, 90)}…` : field.label,
         value: "אושר",
       });
+      // Store it too. On a declaration the consents ARE the document — eight
+      // separate statements the customer affirmed — and until now they existed
+      // only in the email, which is to say only where SMTP happened to work.
+      answers[field.name] = "אושר";
       continue;
     }
 
