@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FormRenderer from "@/components/FormRenderer";
-import { FORM_SLUGS, getForm } from "@/lib/forms";
+import { FORM_SLUGS, getForm, prefillableFields } from "@/lib/forms";
 import { SITE, TEL_HREF } from "@/lib/site";
 import { verifyPrefillToken } from "@/lib/prefill";
 
@@ -32,8 +32,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-const PREFILLABLE = ["fullName", "phone", "email", "plate", "policyNumber"] as const;
-
 export default async function FormPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const form = getForm(slug);
@@ -41,7 +39,10 @@ export default async function FormPage({ params, searchParams }: PageProps) {
 
   const query = await searchParams;
   const prefill: Record<string, string> = {};
-  for (const key of PREFILLABLE) {
+  // Each form declares which of its own fields a link may fill, so a new form
+  // is prefillable the day it is written rather than the day someone
+  // remembers to add its field names to a list over here.
+  for (const key of prefillableFields(form)) {
     const raw = query[key] ?? query[key.toLowerCase()];
     const value = Array.isArray(raw) ? raw[0] : raw;
     if (value) prefill[key] = value.slice(0, 120);

@@ -535,7 +535,7 @@ function Field({
           dir={field.type === "email" ? "ltr" : undefined}
           value={text}
           placeholder={field.placeholder}
-          autoComplete={AUTOCOMPLETE[field.name]}
+          autoComplete={autocompleteFor(field)}
           onChange={(e) => onValue(field.name, e.target.value)}
           aria-invalid={Boolean(error)}
           aria-describedby={describedBy}
@@ -547,10 +547,15 @@ function Field({
   );
 }
 
-// Lets phone keyboards and browser autofill do the obvious thing.
+// Lets phone keyboards and browser autofill do the obvious thing. Keyed by
+// what the field means where the form says so, and by its own name otherwise.
 const AUTOCOMPLETE: Record<string, string> = {
-  fullName: "name",
   phone: "tel",
   email: "email",
   address: "street-address",
 };
+
+function autocompleteFor(field: FormField): string | undefined {
+  if (field.identity === "name") return "name";
+  return AUTOCOMPLETE[field.name];
+}

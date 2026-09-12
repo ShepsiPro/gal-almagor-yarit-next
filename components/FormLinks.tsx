@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FORMS } from "@/lib/forms";
+import { FORMS, identityField } from "@/lib/forms";
 import { SITE } from "@/lib/site";
 
 /**
@@ -18,7 +18,10 @@ export default function FormLinks() {
 
   function linkFor(slug: string) {
     const q = new URLSearchParams();
-    if (name.trim()) q.set("fullName", name.trim());
+    const form = FORMS.find((f) => f.slug === slug);
+    // Each form spells its name field differently; ask it rather than guess.
+    const nameKey = form && identityField(form, "name")?.name;
+    if (nameKey && name.trim()) q.set(nameKey, name.trim());
     if (phone.trim()) q.set("phone", phone.trim());
     const qs = q.toString();
     return `${origin}/forms/${slug}${qs ? `?${qs}` : ""}`;

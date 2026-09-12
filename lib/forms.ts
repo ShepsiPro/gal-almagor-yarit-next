@@ -49,6 +49,17 @@ export type FormField = {
   multiple?: boolean;
   /** Render at half width on desktop. */
   half?: boolean;
+  /**
+   * What this field MEANS to the CRM, whatever this particular form chose to
+   * call it. Each form names its fields to suit its own document — the claim
+   * form says `fullName`, the declaration says `insured_name` — so anything
+   * outside the form definition must ask for the meaning, never the spelling.
+   * Hardcoding a field name is how the declaration form spent its first week
+   * filing customer cards with no name on them.
+   */
+  identity?: "name";
+  /** May be pre-filled from a plain ?query= parameter on the form's link. */
+  prefillable?: boolean;
   /** number: bounds, validated on both sides. */
   min?: number;
   max?: number;
@@ -120,16 +131,16 @@ export const FORMS: readonly FormDef[] = [
       {
         title: "פרטי המבוטח והרכב",
         fields: [
-          { name: "insured_name", label: "שם המבוטח", type: "text", required: true, half: true },
+          { name: "insured_name", label: "שם המבוטח", type: "text", required: true, half: true, identity: "name", prefillable: true },
           { name: "insured_id", label: "תעודת זהות / ח.פ.", type: "id", required: true, half: true },
-          { name: "phone", label: "טלפון", type: "tel", required: true, placeholder: "050-0000000", half: true },
-          { name: "email", label: "דוא״ל", type: "email", placeholder: "you@example.com", half: true },
-          { name: "plate", label: "מספר רישוי", type: "text", required: true, placeholder: "12-345-67", half: true },
+          { name: "phone", label: "טלפון", type: "tel", required: true, placeholder: "050-0000000", half: true, prefillable: true },
+          { name: "email", label: "דוא״ל", type: "email", placeholder: "you@example.com", half: true, prefillable: true },
+          { name: "plate", label: "מספר רישוי", type: "text", required: true, placeholder: "12-345-67", half: true, prefillable: true },
           { name: "vehicle_type", label: "סוג הרכב", type: "text", required: true, placeholder: "יצרן ודגם", half: true },
           { name: "year", label: "שנת ייצור", type: "number", required: true, min: 1900, max: 2100, placeholder: "2019", half: true },
           { name: "model_code", label: "קוד דגם", type: "text", required: true, half: true },
           { name: "insurer", label: "חברת ביטוח", type: "select", options: INSURERS, half: true },
-          { name: "policy_no", label: "מספר פוליסה / הצעה", type: "text", half: true },
+          { name: "policy_no", label: "מספר פוליסה / הצעה", type: "text", half: true, prefillable: true },
           { name: "from_date", label: "תקופת הביטוח — מיום", type: "date", required: true, half: true },
           { name: "to_date", label: "עד יום", type: "date", required: true, half: true },
         ],
@@ -494,17 +505,17 @@ export const FORMS: readonly FormDef[] = [
       {
         title: "פרטי המבוטח",
         fields: [
-          { name: "fullName", label: "שם מלא", type: "text", required: true, half: true },
+          { name: "fullName", label: "שם מלא", type: "text", required: true, half: true, identity: "name", prefillable: true },
           { name: "idNumber", label: "תעודת זהות", type: "id", required: true, half: true },
-          { name: "phone", label: "טלפון נייד", type: "tel", required: true, placeholder: "050-0000000", half: true },
-          { name: "email", label: "דוא״ל", type: "email", placeholder: "you@example.com", half: true },
+          { name: "phone", label: "טלפון נייד", type: "tel", required: true, placeholder: "050-0000000", half: true, prefillable: true },
+          { name: "email", label: "דוא״ל", type: "email", placeholder: "you@example.com", half: true, prefillable: true },
         ],
       },
       {
         title: "פרטי הפוליסה",
         fields: [
           { name: "insurer", label: "חברת הביטוח", type: "select", required: true, options: INSURERS, half: true },
-          { name: "policyNumber", label: "מספר פוליסה", type: "text", half: true },
+          { name: "policyNumber", label: "מספר פוליסה", type: "text", half: true, prefillable: true },
           {
             name: "branch",
             label: "ענף הביטוח",
@@ -553,6 +564,18 @@ export function getForm(slug: string): FormDef | undefined {
 /** Every field of a form, flattened — used by both the renderer and the API. */
 export function allFields(form: FormDef): FormField[] {
   return form.sections.flatMap((s) => [...s.fields]);
+}
+
+/** The field holding the customer's own name, by meaning rather than spelling. */
+export function identityField(form: FormDef, of: "name"): FormField | undefined {
+  return allFields(form).find((f) => f.identity === of);
+}
+
+/** The field names a plain `?name=value` link is allowed to pre-fill. */
+export function prefillableFields(form: FormDef): string[] {
+  return allFields(form)
+    .filter((f) => f.prefillable)
+    .map((f) => f.name);
 }
 
 /**

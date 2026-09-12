@@ -204,7 +204,7 @@ export async function POST(
 
     if (field.type === "email" && !replyTo) replyTo = value;
     if (field.type === "tel" && !customerPhone) customerPhone = value;
-    if (field.name === "fullName") customerName = value;
+    if (field.identity === "name" && !customerName) customerName = value;
     answers[field.name] = value;
     rows.push({ label: field.label, value });
   }
