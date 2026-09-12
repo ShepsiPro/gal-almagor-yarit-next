@@ -19,7 +19,7 @@ import {
   type FormField,
 } from "@/lib/forms";
 import { renderEmail, sendMail, type MailAttachment, type Row } from "@/lib/mailer";
-import { mslahtkConfigured, submitLead } from "@/lib/mslahtk";
+import { mslahtkConfigured, submitLead, uploadLeadFiles, type UploadSummary } from "@/lib/mslahtk";
 import { verifyPrefillToken } from "@/lib/prefill";
 
 export const runtime = "nodejs";
@@ -146,8 +146,8 @@ export async function POST(
       const fileSummary =
         files.length === 1 ? "קובץ אחד מצורף" : `${files.length} קבצים מצורפים`;
       rows.push({ label: field.label, value: fileSummary });
-      // Until the public lead-upload token lands, the files themselves travel
-      // in the email only; the card still records what was attached.
+      // `fields` records WHAT was attached; the bytes go onto the lead itself
+      // further down (uploadLeadFiles), and ride the email as the backstop.
       answers[field.name] = files.map((f) => f.name).join(", ");
       continue;
     }
@@ -231,8 +231,34 @@ export async function POST(
     source: { page: `/forms/${form.slug}`, referrer: req.headers.get("referer") ?? undefined },
   });
 
+  // Push the attachments onto the lead so they live on the customer's card and
+  // not only in this one email. Non-fatal by design: the lead is already filed
+  // and the same bytes ride along below, so a storage outage — or a token not
+  // yet carrying leads:files:write — costs the gallery, never the submission.
+  let upload: UploadSummary | null = null;
+  if (lead.ok && attachments.length) {
+    upload = await uploadLeadFiles(lead.leadId, attachments);
+    if (upload.failed) {
+      console.error("[forms] lead file upload incomplete", {
+        slug,
+        leadId: lead.leadId,
+        uploaded: upload.uploaded,
+        failed: upload.failed,
+        errors: upload.errors,
+      });
+    }
+  }
+
   if (lead.ok) {
     rows.push({ label: "כרטיס לקוח", value: `נוצר במערכת (${lead.leadId})` });
+    if (upload && upload.failed) {
+      // Say so in the email, because the email is then the only copy of those
+      // particular files and whoever reads it needs to know not to delete it.
+      rows.push({
+        label: "קבצים בכרטיס",
+        value: `${upload.uploaded} מתוך ${upload.uploaded + upload.failed} הועלו — השאר מצורפים למייל בלבד`,
+      });
+    }
   } else if (!lead.skipped) {
     console.error("[forms] mslahtk lead failed", { slug, error: lead.error });
     rows.push({ label: "כרטיס לקוח", value: `לא נוצר — ${lead.error}` });

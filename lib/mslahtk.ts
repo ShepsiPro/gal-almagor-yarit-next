@@ -126,3 +126,94 @@ export async function submitLead(input: LeadInput): Promise<LeadResult> {
     return { ok: false, error: reason };
   }
 }
+
+// ── Attachments ────────────────────────────────────────────────────────────
+//
+// The submission's files, onto the lead and so onto the customer's card.
+// Three steps per file, mirroring the dashboard's own upload: ask for a signed
+// PUT url, send the bytes straight to storage, then tell Mslahtk the object is
+// there. The bytes never pass through Mslahtk's API, which is why an 8MB
+// photograph is not a 32KB-capped `fields` problem.
+//
+// Requires the token to carry `leads:files:write` (preset `site-backend`).
+// Until that scope is granted every call 403s — which is why nothing here is
+// fatal: the lead is already filed, the email still carries the same files,
+// and a submission must never fail because the gallery did.
+
+export type LeadFile = { filename: string; contentType: string; content: Buffer };
+export type UploadSummary = { uploaded: number; failed: number; errors: string[] };
+
+const UPLOAD_BUDGET_MS = 15_000;
+
+async function uploadOne(leadId: string, file: LeadFile, signal: AbortSignal): Promise<void> {
+  const base = `${API_BASE}/service/sites/${PROJECT_ID}/leads/${leadId}/files`;
+  const auth = { Authorization: `Bearer ${SERVICE_TOKEN}`, "Content-Type": "application/json" };
+
+  const signRes = await fetch(`${base}/sign-upload`, {
+    method: "POST",
+    headers: auth,
+    body: JSON.stringify({ contentType: file.contentType, filename: file.filename }),
+    signal,
+  });
+  const sign = (await signRes.json().catch(() => ({}))) as {
+    uploadUrl?: string;
+    publicUrl?: string;
+    message?: string;
+  };
+  if (!signRes.ok || !sign.uploadUrl || !sign.publicUrl) {
+    throw new Error(sign.message || `sign-upload responded ${signRes.status}`);
+  }
+
+  // Straight to storage. The signed url encodes the content type, so sending a
+  // different one here fails the signature rather than storing a mislabelled
+  // object.
+  const putRes = await fetch(sign.uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.contentType },
+    body: new Uint8Array(file.content),
+    signal,
+  });
+  if (!putRes.ok) throw new Error(`storage PUT responded ${putRes.status}`);
+
+  const recRes = await fetch(base, {
+    method: "POST",
+    headers: auth,
+    body: JSON.stringify({
+      url: sign.publicUrl,
+      mimeType: file.contentType,
+      filename: file.filename,
+      size: file.content.byteLength,
+    }),
+    signal,
+  });
+  if (!recRes.ok) {
+    const j = (await recRes.json().catch(() => ({}))) as { message?: string };
+    throw new Error(j.message || `record responded ${recRes.status}`);
+  }
+}
+
+/** Never throws. Reports what happened so the email can say so. */
+export async function uploadLeadFiles(leadId: string, files: LeadFile[]): Promise<UploadSummary> {
+  const out: UploadSummary = { uploaded: 0, failed: 0, errors: [] };
+  if (!leadId || !files.length || !PROJECT_ID || !SERVICE_TOKEN) return out;
+
+  // One budget for the whole batch, not per file: the customer is waiting on
+  // this response, and a storage outage should cost them one wait, not six.
+  const deadline = Date.now() + UPLOAD_BUDGET_MS;
+  for (const file of files) {
+    const left = deadline - Date.now();
+    if (left <= 500) {
+      out.failed += 1;
+      out.errors.push(`${file.filename}: לא הועלה (חריגת זמן)`);
+      continue;
+    }
+    try {
+      await uploadOne(leadId, file, AbortSignal.timeout(left));
+      out.uploaded += 1;
+    } catch (err) {
+      out.failed += 1;
+      out.errors.push(`${file.filename}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return out;
+}
