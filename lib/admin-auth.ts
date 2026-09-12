@@ -40,8 +40,28 @@ function sign(payload: string): string {
   return createHmac("sha256", secret()).update(payload).digest("base64url");
 }
 
+/**
+ * Verification must never throw.
+ *
+ * `secret()` refuses to fall back in production, which is right when MINTING —
+ * a link signed with the dev secret would be forgeable by anyone who has read
+ * this file. But on the verify path that same throw turned an unconfigured
+ * deployment into a 500 on /admin/entry for every visitor, instead of the
+ * honest "this link is not valid". Fail closed, quietly: no readable secret
+ * means no valid token, which is exactly what an unconfigured server should
+ * believe.
+ */
+function verifiable(): string | null {
+  try {
+    return secret();
+  } catch {
+    return null;
+  }
+}
+
 /** Constant-time compare so a wrong signature leaks nothing through timing. */
 function signatureMatches(payload: string, given: string): boolean {
+  if (!verifiable()) return false;
   const expected = Buffer.from(sign(payload), "base64url");
   const got = Buffer.from(given, "base64url");
   return expected.length === got.length && timingSafeEqual(expected, got);
@@ -55,7 +75,11 @@ function encode(obj: Record<string, unknown>): string {
 function decode(token: string | undefined | null): Record<string, unknown> | null {
   const [payload, sig] = String(token || "").split(".");
   if (!payload || !sig) return null;
-  if (!signatureMatches(payload, sig)) return null;
+  try {
+    if (!signatureMatches(payload, sig)) return null;
+  } catch {
+    return null;
+  }
   try {
     const obj = JSON.parse(Buffer.from(payload, "base64url").toString("utf-8"));
     if (!obj?.exp || Date.now() > Number(obj.exp)) return null;
