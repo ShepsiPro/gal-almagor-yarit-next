@@ -35,8 +35,14 @@ export async function GET(req: NextRequest) {
 
   const to = req.nextUrl.searchParams.get("to");
   // Only ever our own back-office: an attacker-supplied absolute URL here would
-  // make this an open redirect wearing a trusted domain.
-  const dest = to && /^\/admin(\/|$)/.test(to) ? to : "/admin";
+  // make this an open redirect wearing a trusted domain. Without an explicit
+  // `to`, a token minted from one submission's page in Mslahtk lands on that
+  // submission; a token from the dashboard header lands on the list.
+  const dest = to && /^\/admin(\/|$)/.test(to)
+    ? to
+    : identity.lid
+      ? `/admin/${encodeURIComponent(identity.lid)}`
+      : "/admin";
 
   const res = NextResponse.redirect(new URL(dest, origin));
   const { value, maxAge } = mintSessionCookie(identity);

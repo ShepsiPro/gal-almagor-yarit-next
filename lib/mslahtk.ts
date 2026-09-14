@@ -19,7 +19,9 @@
 // NOTE: SHEPSIPRO_SITE_INTEGRATION.md documents the base as api.mslahtk.ai —
 // that host does not resolve. The live API is intake-api.mslahtk.ai
 // (staging: intake-api-staging.mslahtk.ai), which is what the frontend uses.
-const API_BASE = (process.env.MSLAHTK_API_BASE || "https://intake-api.mslahtk.ai").replace(/\/$/, "");
+// MSLAHTK_API_BASE is this site's own name; MSLAHTK_API is the canonical name
+// Mslahtk's "Connect app" writes. Either works, the site's own name wins.
+const API_BASE = (process.env.MSLAHTK_API_BASE || process.env.MSLAHTK_API || "https://intake-api.mslahtk.ai").replace(/\/$/, "");
 const PROJECT_ID = process.env.MSLAHTK_PROJECT_ID || "";
 const SERVICE_TOKEN = process.env.MSLAHTK_SERVICE_TOKEN || "";
 
