@@ -25,10 +25,21 @@ export type AdminIdentity = {
   email?: string;
   /** Mslahtk project this admin was launched for. */
   pid?: string;
+  /**
+   * Present on an ENTRY token only: the submission the button sat on, so the
+   * click lands on that record instead of the list. Never carried into the
+   * session cookie, which is a login, not a bookmark.
+   */
+  lid?: string;
 };
 
+/** A Mslahtk record id: opaque, url-safe, short. Anything else is not put in a path. */
+const RECORD_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
 function secret(): string {
-  const s = process.env.ADMIN_LINK_SECRET;
+  // ADMIN_LINK_SECRET is this site's own name for it; MSLAHTK_CONNECTION_SECRET
+  // is the name Mslahtk's "Connect app" writes, so either works.
+  const s = process.env.ADMIN_LINK_SECRET || process.env.MSLAHTK_CONNECTION_SECRET;
   if (s) return s;
   if (process.env.NODE_ENV === "production") {
     throw new Error("ADMIN_LINK_SECRET must be set in production");
@@ -98,12 +109,21 @@ export function mintEntryToken(identity: AdminIdentity): string {
 export function verifyEntryToken(token: string | undefined | null): AdminIdentity | null {
   const obj = decode(token);
   if (!obj || obj.kind !== "entry") return null;
-  return { sub: String(obj.sub), email: obj.email ? String(obj.email) : undefined, pid: obj.pid ? String(obj.pid) : undefined };
+  const lid = typeof obj.lid === "string" && RECORD_ID.test(obj.lid) ? obj.lid : undefined;
+  return {
+    sub: String(obj.sub),
+    email: obj.email ? String(obj.email) : undefined,
+    pid: obj.pid ? String(obj.pid) : undefined,
+    ...(lid ? { lid } : {}),
+  };
 }
 
 export function mintSessionCookie(identity: AdminIdentity): { value: string; maxAge: number } {
+  // Only who and which business. The submission id on an entry token is a
+  // destination for that one click, not something a session should remember.
+  const session = { sub: identity.sub, email: identity.email, pid: identity.pid };
   return {
-    value: encode({ ...identity, kind: "session", exp: Date.now() + SESSION_TTL_MS }),
+    value: encode({ ...session, kind: "session", exp: Date.now() + SESSION_TTL_MS }),
     maxAge: Math.floor(SESSION_TTL_MS / 1000),
   };
 }
