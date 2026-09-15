@@ -109,6 +109,12 @@ export default function Footer() {
           {" · "}
           בפיקוח רשות שוק ההון, ביטוח וחיסכון
         </p>
+        <p className="footer__legal">
+          האתר נבנה ומנוהל על ידי{" "}
+          <a href="https://mslahtk.ai/he/work" target="_blank" rel="noopener">
+            Mslahtk
+          </a>
+        </p>
         <p className="footer__disclaimer">
           האמור באתר הוא מידע כללי בלבד, אינו מהווה ייעוץ, שיווק פנסיוני או המלצה
           כלשהי, ואינו תחליף לייעוץ אישי המתחשב בנתונים ובצרכים של כל אדם. הכיסוי
