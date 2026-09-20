@@ -16,7 +16,7 @@ const coherenti = localFont({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.almagor-yaarit.com"),
+  metadataBase: new URL("https://almagor-yaarit.com"),
   alternates: { canonical: "/" },
   title: "גל אלמגור יערית · סוכנות ביטוח · שלומי",
   description:

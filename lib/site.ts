@@ -9,8 +9,8 @@ export const SITE = {
   group: "קבוצת גל אלמגור",
   tagline:
     "סוכנות ביטוח עצמאית בשלומי, חברה בקבוצת גל אלמגור — ליווי אישי לתיק הביטוח של משפחות ועסקים בגליל המערבי.",
-  domain: "www.almagor-yaarit.com",
-  url: "https://www.almagor-yaarit.com",
+  domain: "almagor-yaarit.com",
+  url: "https://almagor-yaarit.com",
 
   // Regulatory identifiers — רשות שוק ההון, ביטוח וחיסכון / רשם החברות.
   // Leave empty to hide the line until you have the official number.

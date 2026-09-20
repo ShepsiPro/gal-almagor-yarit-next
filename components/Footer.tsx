@@ -111,7 +111,7 @@ export default function Footer() {
         </p>
         <p className="footer__legal">
           האתר נבנה ומנוהל על ידי{" "}
-          <a href="https://mslahtk.ai/he/work" target="_blank" rel="noopener">
+          <a href="https://mslahtk.ai/he/work/almagor-yaarit" target="_blank" rel="noopener">
             Mslahtk
           </a>
         </p>
