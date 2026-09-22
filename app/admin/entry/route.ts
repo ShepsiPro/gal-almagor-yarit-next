@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_COOKIE, mintSessionCookie, verifyEntryToken } from "@/lib/admin-auth";
+import { db } from "@/lib/db";
+import { publicOrigin } from "@/lib/request";
+
+export const runtime = "nodejs";
 
 /**
  * The landing point for Mslahtk's "open back-office" click.
@@ -7,26 +11,11 @@ import { ADMIN_COOKIE, mintSessionCookie, verifyEntryToken } from "@/lib/admin-a
  * The link carries a short-lived signed token; we verify it, swap it for a
  * session cookie and redirect to a clean URL. The redirect matters: an entry
  * token that stays in the address bar ends up in history, in a screenshot, in
- * a pasted chat message — and while it only lives 15 minutes, there is no
+ * a pasted chat message, and while it only lives 15 minutes, there is no
  * reason for it to outlive its single use.
  */
-/**
- * The public origin, which is NOT what `req.url` says.
- *
- * Behind Railway's proxy the app binds 0.0.0.0:8080 and that is the authority
- * Next reports, so `new URL(path, req.url)` builds a redirect to
- * https://0.0.0.0:8080/… — an address the visitor's browser cannot reach. The
- * forwarded headers carry the host the customer actually typed.
- */
-function publicOrigin(req: NextRequest): string {
-  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
-  if (!host) return req.nextUrl.origin;
-  const proto = req.headers.get("x-forwarded-proto") || (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
-}
-
 export async function GET(req: NextRequest) {
-  const origin = publicOrigin(req);
+  const origin = publicOrigin(req.headers, req.nextUrl.origin);
   const token = req.nextUrl.searchParams.get("t");
   const identity = verifyEntryToken(token);
   if (!identity) {
@@ -41,7 +30,7 @@ export async function GET(req: NextRequest) {
   const dest = to && /^\/admin(\/|$)/.test(to)
     ? to
     : identity.lid
-      ? `/admin/${encodeURIComponent(identity.lid)}`
+      ? await landingFor(identity.lid)
       : "/admin";
 
   const res = NextResponse.redirect(new URL(dest, origin));
@@ -54,4 +43,17 @@ export async function GET(req: NextRequest) {
     maxAge,
   });
   return res;
+}
+
+/**
+ * A lead-placement token carries Mslahtk's lead id. The record here is keyed
+ * by this site's own id, so resolve it; a lead this site never filed (one that
+ * arrived before the store existed, or through another channel) lands on the
+ * list with a note rather than on a 404.
+ */
+async function landingFor(lid: string): Promise<string> {
+  const sub = await db.submission
+    .findFirst({ where: { OR: [{ id: lid }, { mslahtkLeadId: lid }] }, select: { id: true } })
+    .catch(() => null);
+  return sub ? `/admin/${sub.id}` : `/admin?lookup=${encodeURIComponent(lid)}`;
 }

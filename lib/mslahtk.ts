@@ -1,29 +1,71 @@
-// Lead capture into Mslahtk.
+// The CRM side of a submission.
 //
-// Uses the TRUSTED server-to-server route, the same one Verox uses:
-//   POST {apiBase}/service/sites/{projectId}/leads
-//   Authorization: Bearer <service-account token>
+// This site's database is the record (lib/submissions.ts). Mslahtk is where
+// the agency WORKS the record: the customer card (a lead is linked to a
+// Customer by phone, so a returning customer lands on the same card), the
+// pipeline, WhatsApp, the owner dashboard and the phone app. So every
+// submission is also filed there as a lead, over the TRUSTED server-to-server
+// route:
+//   POST {api}/service/sites/{projectId}/leads   Authorization: Bearer <token>
+// The public route is Origin-checked against *.mslahtk.ai, which a custom
+// domain fails, silently; the service route is for a first-party backend.
 //
-// Why the service route and not /public/sites/... :
-//   1. The public route is Origin-checked against Project.allowedOrigin, which
-//      Mslahtk derives from `https://<subdomain>.mslahtk.ai`. This site is on a
-//      custom domain, so the public route would 403 every submission — silently,
-//      with nothing visible in either dashboard.
-//   2. The service route skips Turnstile and the Origin check, because the
-//      caller is a first-party backend. We already have one.
+// The lead carries `_submissionId` and this site's row carries the lead id,
+// so both directions resolve: Mslahtk's launch button opens the right record
+// here, and the back-office links straight to the lead there.
 //
-// Mslahtk links the lead to a Customer by phone (Customer is unique per
-// [projectId, phone]), so a returning customer lands on the same card rather
-// than creating a second one.
+// Env, in the names Mslahtk's "Connect app" writes, with this site's older
+// names accepted as aliases:
+//   MSLAHTK_API              (alias MSLAHTK_API_BASE)
+//   MSLAHTK_PROJECT_ID
+//   MSLAHTK_SERVICE_TOKEN
+//   MSLAHTK_CONNECTION_SECRET (alias ADMIN_LINK_SECRET; launch tokens + webhooks, see lib/admin-auth.ts)
+//   MSLAHTK_DASHBOARD_URL     optional, where "open in Mslahtk" links point
 
-// NOTE: SHEPSIPRO_SITE_INTEGRATION.md documents the base as api.mslahtk.ai —
-// that host does not resolve. The live API is intake-api.mslahtk.ai
-// (staging: intake-api-staging.mslahtk.ai), which is what the frontend uses.
-// MSLAHTK_API_BASE is this site's own name; MSLAHTK_API is the canonical name
-// Mslahtk's "Connect app" writes. Either works, the site's own name wins.
-const API_BASE = (process.env.MSLAHTK_API_BASE || process.env.MSLAHTK_API || "https://intake-api.mslahtk.ai").replace(/\/$/, "");
-const PROJECT_ID = process.env.MSLAHTK_PROJECT_ID || "";
-const SERVICE_TOKEN = process.env.MSLAHTK_SERVICE_TOKEN || "";
+export type MslahtkConfig = { api: string; projectId: string; serviceToken: string; dashboardUrl: string };
+
+export function mslahtkConfig(): MslahtkConfig {
+  // MSLAHTK_API_BASE is this site's own older name; MSLAHTK_API is the name
+  // Connect app writes. The site's own name wins when both exist.
+  const api = (process.env.MSLAHTK_API_BASE || process.env.MSLAHTK_API || "https://intake-api.mslahtk.ai").replace(/\/+$/, "");
+  return {
+    api,
+    projectId: (process.env.MSLAHTK_PROJECT_ID || "").trim(),
+    serviceToken: (process.env.MSLAHTK_SERVICE_TOKEN || "").trim(),
+    dashboardUrl: (process.env.MSLAHTK_DASHBOARD_URL || defaultDashboardUrl(api)).replace(/\/+$/, ""),
+  };
+}
+
+/**
+ * The dashboard that goes with an API host: intake-api.mslahtk.ai is served
+ * by intake.mslahtk.ai, intake-api-staging by intake-staging. Derived so a
+ * staging connection never emails a production link, unless told otherwise.
+ */
+function defaultDashboardUrl(api: string): string {
+  try {
+    const host = new URL(api).hostname;
+    if (host.startsWith("intake-api")) return `https://${host.replace(/^intake-api/, "intake")}`;
+  } catch {
+    /* fall through */
+  }
+  return "https://intake.mslahtk.ai";
+}
+
+export function mslahtkConfigured(): boolean {
+  const c = mslahtkConfig();
+  return Boolean(c.projectId && c.serviceToken);
+}
+
+/** Non-secret summary for the health page. */
+export function describeMslahtk() {
+  const c = mslahtkConfig();
+  return { configured: mslahtkConfigured(), api: c.api, projectId: c.projectId || null, hasServiceToken: Boolean(c.serviceToken) };
+}
+
+/** Deep link into the Mslahtk dashboard, straight onto a lead. */
+export function dashboardLeadUrl(leadId: string): string {
+  return `${mslahtkConfig().dashboardUrl}/dashboard?lead=${encodeURIComponent(leadId)}`;
+}
 
 /** The API caps `fields` at 32KB; stay under it so a submission is never rejected whole. */
 const MAX_FIELDS_BYTES = 30 * 1024;
@@ -53,10 +95,6 @@ export type LeadResult =
   | { ok: true; leadId: string }
   | { ok: false; error: string; skipped?: boolean; rejected?: boolean };
 
-export function mslahtkConfigured(): boolean {
-  return Boolean(PROJECT_ID && SERVICE_TOKEN);
-}
-
 /** Drop the largest values until `fields` fits the API cap. */
 function fitFields(fields: Record<string, string>): Record<string, string> {
   const out = { ...fields };
@@ -64,18 +102,19 @@ function fitFields(fields: Record<string, string>): Record<string, string> {
   if (size() <= MAX_FIELDS_BYTES) return out;
   const byLength = Object.keys(out).sort((a, b) => out[b].length - out[a].length);
   for (const key of byLength) {
-    out[key] = out[key].slice(0, 500) + "… (נחתך)";
+    out[key] = out[key].slice(0, 500) + "... (נחתך)";
     if (size() <= MAX_FIELDS_BYTES) break;
   }
   return out;
 }
 
 /**
- * Send one lead. Never throws: the caller emails the submission regardless, so
- * a Mslahtk outage degrades to "we still got the mail" instead of losing a
- * customer's form.
+ * File one lead. Never throws: the submission is already on record here and
+ * the email goes out regardless, so a Mslahtk outage degrades to "the card
+ * appears later" (the sweep links it) instead of losing a customer's form.
  */
 export async function submitLead(input: LeadInput): Promise<LeadResult> {
+  const cfg = mslahtkConfig();
   if (!mslahtkConfigured()) {
     return { ok: false, error: "Mslahtk is not configured", skipped: true };
   }
@@ -96,14 +135,15 @@ export async function submitLead(input: LeadInput): Promise<LeadResult> {
   };
 
   try {
-    const res = await fetch(`${API_BASE}/service/sites/${PROJECT_ID}/leads`, {
+    const res = await fetch(`${cfg.api}/service/sites/${encodeURIComponent(cfg.projectId)}/leads`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${SERVICE_TOKEN}`,
+        Authorization: `Bearer ${cfg.serviceToken}`,
       },
       body: JSON.stringify(body),
-      // A slow CRM must not hold the customer on a spinner; the email is the backstop.
+      // A slow CRM must not hold the customer on a spinner; the record is
+      // already written and the sweep links a late-created lead afterwards.
       signal: AbortSignal.timeout(8000),
     });
 
@@ -113,9 +153,9 @@ export async function submitLead(input: LeadInput): Promise<LeadResult> {
     }
     if (!json.leadId) {
       // captureLead answers { ok: true, leadId: null } when its honeypot trips:
-      // the submission is DROPPED, not stored. We never send a honeypot field,
-      // so this should not happen — but reporting it as a plain error would
-      // hide the one case where a real customer was silently discarded.
+      // the submission is DROPPED there, not stored. We never send a honeypot
+      // field, so this should not happen; reporting it as a plain error would
+      // hide the one case where the CRM copy was silently discarded.
       return {
         ok: false,
         rejected: true,
@@ -129,116 +169,80 @@ export async function submitLead(input: LeadInput): Promise<LeadResult> {
   }
 }
 
-// ── Attachments ────────────────────────────────────────────────────────────
+// ── Working an existing lead ───────────────────────────────────────────────
 //
-// The submission's files, onto the lead and so onto the customer's card.
-// Three steps per file, mirroring the dashboard's own upload: ask for a signed
-// PUT url, send the bytes straight to storage, then tell Mslahtk the object is
-// there. The bytes never pass through Mslahtk's API, which is why an 8MB
-// photograph is not a 32KB-capped `fields` problem.
-//
-// Requires the token to carry `leads:files:write` (preset `site-backend`).
-// Until that scope is granted every call 403s — which is why nothing here is
-// fatal: the lead is already filed, the email still carries the same files,
-// and a submission must never fail because the gallery did.
+// A case (lib/home-case.ts) is ONE lead: the customer's request creates it, and
+// the agency's offer and the customer's signed answer move that same lead along
+// and write their summary onto it, rather than opening a new card each time.
+// Both helpers never throw: the record is already written here, so a CRM miss
+// is a log line and a note in the back-office, not a failed submission.
 
-export type LeadFile = { filename: string; contentType: string; content: Buffer };
-export type UploadSummary = { uploaded: number; failed: number; errors: string[] };
+export type LeadOpResult = { ok: true } | { ok: false; error: string; skipped?: boolean };
 
-const UPLOAD_BUDGET_MS = 15_000;
-
-async function uploadOne(leadId: string, file: LeadFile, signal: AbortSignal): Promise<void> {
-  const base = `${API_BASE}/service/sites/${PROJECT_ID}/leads/${leadId}/files`;
-  const auth = { Authorization: `Bearer ${SERVICE_TOKEN}`, "Content-Type": "application/json" };
-
-  const signRes = await fetch(`${base}/sign-upload`, {
-    method: "POST",
-    headers: auth,
-    body: JSON.stringify({ contentType: file.contentType, filename: file.filename }),
-    signal,
-  });
-  const sign = (await signRes.json().catch(() => ({}))) as {
-    uploadUrl?: string;
-    publicUrl?: string;
-    message?: string;
-  };
-  if (!signRes.ok || !sign.uploadUrl || !sign.publicUrl) {
-    throw new Error(sign.message || `sign-upload responded ${signRes.status}`);
-  }
-
-  // Straight to storage. The signed url encodes the content type, so sending a
-  // different one here fails the signature rather than storing a mislabelled
-  // object.
-  const putRes = await fetch(sign.uploadUrl, {
-    method: "PUT",
-    headers: { "Content-Type": file.contentType },
-    body: new Uint8Array(file.content),
-    signal,
-  });
-  if (!putRes.ok) throw new Error(`storage PUT responded ${putRes.status}`);
-
-  const recRes = await fetch(base, {
-    method: "POST",
-    headers: auth,
-    body: JSON.stringify({
-      url: sign.publicUrl,
-      mimeType: file.contentType,
-      filename: file.filename,
-      size: file.content.byteLength,
-    }),
-    signal,
-  });
-  if (!recRes.ok) {
-    const j = (await recRes.json().catch(() => ({}))) as { message?: string };
-    throw new Error(j.message || `record responded ${recRes.status}`);
+/** POST .../leads/:id/stage. `via` is what the Mslahtk timeline shows as the actor. */
+export async function setLeadStage(leadId: string, status: string, via: string): Promise<LeadOpResult> {
+  const cfg = mslahtkConfig();
+  if (!mslahtkConfigured()) return { ok: false, error: "Mslahtk is not configured", skipped: true };
+  try {
+    const res = await fetch(`${cfg.api}/service/sites/${encodeURIComponent(cfg.projectId)}/leads/${encodeURIComponent(leadId)}/stage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${cfg.serviceToken}` },
+      body: JSON.stringify({ status, via }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) {
+      const json = (await res.json().catch(() => ({}))) as { message?: string };
+      return { ok: false, error: json.message || `Mslahtk responded ${res.status}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
-/** Never throws. Reports what happened so the email can say so. */
-export async function uploadLeadFiles(leadId: string, files: LeadFile[]): Promise<UploadSummary> {
-  const out: UploadSummary = { uploaded: 0, failed: 0, errors: [] };
-  if (!leadId || !files.length || !PROJECT_ID || !SERVICE_TOKEN) return out;
-
-  // One budget for the whole batch, not per file: the customer is waiting on
-  // this response, and a storage outage should cost them one wait, not six.
-  const deadline = Date.now() + UPLOAD_BUDGET_MS;
-  for (const file of files) {
-    const left = deadline - Date.now();
-    if (left <= 500) {
-      out.failed += 1;
-      out.errors.push(`${file.filename}: לא הועלה (חריגת זמן)`);
-      continue;
-    }
-    try {
-      await uploadOne(leadId, file, AbortSignal.timeout(left));
-      out.uploaded += 1;
-    } catch (err) {
-      out.failed += 1;
-      out.errors.push(`${file.filename}: ${err instanceof Error ? err.message : String(err)}`);
-    }
+/**
+ * PATCH .../leads/:id: merge `fields` onto the lead (keys [A-Za-z0-9_.-], values
+ * up to 2000 chars, 50 per call) and optionally replace its note. Needs the
+ * `leads:write` scope on the service token.
+ */
+export async function updateLead(
+  leadId: string,
+  patch: { fields?: Record<string, string | number | boolean>; notes?: string },
+): Promise<LeadOpResult> {
+  const cfg = mslahtkConfig();
+  if (!mslahtkConfigured()) return { ok: false, error: "Mslahtk is not configured", skipped: true };
+  const fields: Record<string, string | number | boolean> = {};
+  for (const [k, v] of Object.entries(patch.fields ?? {})) {
+    if (!/^[A-Za-z0-9_.-]{1,64}$/.test(k)) continue;
+    fields[k] = typeof v === "string" ? v.slice(0, 2000) : v;
   }
-  return out;
+  try {
+    const res = await fetch(`${cfg.api}/service/sites/${encodeURIComponent(cfg.projectId)}/leads/${encodeURIComponent(leadId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${cfg.serviceToken}` },
+      body: JSON.stringify({
+        ...(Object.keys(fields).length ? { fields } : {}),
+        ...(patch.notes !== undefined ? { notes: patch.notes.slice(0, 5000) } : {}),
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) {
+      const json = (await res.json().catch(() => ({}))) as { message?: string };
+      return { ok: false, error: json.message || `Mslahtk responded ${res.status}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
-// ── Reading submissions back ───────────────────────────────────────────────
+// ── Reading leads back (the status sweep) ──────────────────────────────────
 //
-// The other direction: Mslahtk stores `fields` as opaque keys, because it has
-// no idea what an insurance declaration is. This site holds the map — labels,
-// section order, conditional logic — so the back-office renders from here.
-//
-// Needs `leads:fields` on the token (preset `site-backend`).
+// Needs `leads:fields` on the token (preset `site-backend`). Only the status
+// and the `_submissionId` marker are used here; the answers themselves are
+// this site's own rows.
 
-export type StoredFile = {
-  id: string;
-  url: string;
-  kind: string;
-  mimeType: string | null;
-  filename: string | null;
-  size: number | null;
-  createdAt: string;
-};
-
-export type StoredLead = {
+export type LeadRow = {
   id: string;
   name: string | null;
   phone: string | null;
@@ -247,40 +251,49 @@ export type StoredLead = {
   category: string | null;
   ctaId: string | null;
   ctaLabel: string | null;
-  fields: Record<string, string>;
+  fields: Record<string, unknown> | null;
   createdAt: string;
+  updatedAt?: string;
 };
 
-export type StoredLeadDetail = {
-  lead: StoredLead;
-  customer: { id: string; name: string | null; phone: string | null; email: string | null } | null;
-  files: StoredFile[];
-};
-
-async function readJson<T>(path: string, timeoutMs = 10_000): Promise<T> {
-  const res = await fetch(`${API_BASE}/service/sites/${PROJECT_ID}${path}`, {
-    headers: { Authorization: `Bearer ${SERVICE_TOKEN}` },
-    signal: AbortSignal.timeout(timeoutMs),
-    cache: "no-store",
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const msg = (json as { message?: string }).message || `Mslahtk responded ${res.status}`;
-    throw new Error(msg);
-  }
-  return json as T;
-}
-
-/** A page of submissions, newest first. */
-export function listStoredLeads(opts: { limit?: number; offset?: number } = {}) {
+export async function listLeads(opts: { limit?: number; offset?: number; timeoutMs?: number } = {}) {
+  const cfg = mslahtkConfig();
   const q = new URLSearchParams();
   q.set("limit", String(Math.min(Math.max(opts.limit ?? 50, 1), 100)));
   if (opts.offset) q.set("offset", String(opts.offset));
-  return readJson<{ items: StoredLead[]; total: number; limit: number; offset: number }>(
-    `/leads?${q.toString()}`,
-  );
+  const res = await fetch(`${cfg.api}/service/sites/${encodeURIComponent(cfg.projectId)}/leads?${q.toString()}`, {
+    headers: { Authorization: `Bearer ${cfg.serviceToken}` },
+    signal: AbortSignal.timeout(opts.timeoutMs ?? 10_000),
+    cache: "no-store",
+  });
+  const json = (await res.json().catch(() => ({}))) as { items?: LeadRow[]; total?: number; message?: string };
+  if (!res.ok) {
+    throw new Error(json.message || `Mslahtk responded ${res.status}`);
+  }
+  return { items: json.items ?? [], total: json.total ?? 0 };
 }
 
-export function getStoredLead(leadId: string) {
-  return readJson<StoredLeadDetail>(`/leads/${encodeURIComponent(leadId)}`);
+/**
+ * Mslahtk's standard pipeline statuses in Hebrew. A business can rename its
+ * columns in Mslahtk, in which case the raw key is shown as is.
+ */
+export function statusLabel(status: string | null | undefined): string {
+  switch ((status || "").toLowerCase()) {
+    case "":
+      return "";
+    case "new":
+      return "חדש";
+    case "contacted":
+      return "נוצר קשר";
+    case "qualified":
+      return "בטיפול";
+    case "won":
+      return "נסגר";
+    case "lost":
+      return "לא התקדם";
+    case "rejected":
+      return "לא רלוונטי";
+    default:
+      return String(status);
+  }
 }

@@ -5,8 +5,9 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Contact from "@/components/Contact";
 import Quote from "@/components/Quote";
+import { getCase } from "@/lib/forms";
 import { INSURANCE_CONTENT, INSURANCE_SLUGS } from "@/lib/insurance-data";
-import { TEL_HREF } from "@/lib/site";
+import { SIMULATOR_ENABLED, TEL_HREF } from "@/lib/site";
 
 type Params = { slug: string };
 type PageProps = { params: Promise<Params> };
@@ -42,8 +43,13 @@ export default async function InsurancePage({ params }: PageProps) {
 
   // On the car page the bottom lead form is replaced by the live quote
   // simulator, so the page's CTAs scroll to it (#quote) instead of #contact.
-  const hasSimulator = slug === "car";
+  // While the simulator is switched off (lib/site.ts) the car page behaves
+  // like every other area: lead form at the bottom, CTAs to #contact.
+  const hasSimulator = slug === "car" && SIMULATOR_ENABLED;
   const ctaHref = hasSimulator ? "#quote" : "#contact";
+  // The home insurance page starts the customer at the calculator: a first
+  // number in a minute, then the request form with the numbers carried over.
+  const calculator = getCase("home")?.simulatorPath && slug === "home" ? getCase("home")!.simulatorPath! : null;
 
   return (
     <>
@@ -67,9 +73,15 @@ export default async function InsurancePage({ params }: PageProps) {
           <p className="info-hero__intro">{content.intro}</p>
 
           <div className="info-hero__ctas">
-            <a href={ctaHref} className="btn-primary">
-              {hasSimulator ? "לסימולטור הביטוח" : "שיחת ייעוץ ללא עלות"}
-            </a>
+            {calculator ? (
+              <Link href={calculator} className="btn-primary">
+                לחישוב הצעה ראשונית
+              </Link>
+            ) : (
+              <a href={ctaHref} className="btn-primary">
+                {hasSimulator ? "לסימולטור הביטוח" : "שיחת ייעוץ ללא עלות"}
+              </a>
+            )}
             <Link href="/#categories" className="btn-link">
               <span className="btn-link__arrow">←</span>
               חזרה לתחומי הליווי
@@ -118,9 +130,15 @@ export default async function InsurancePage({ params }: PageProps) {
                 סניף שלומי של גל אלמגור עומד לרשותכם — שיחת ייעוץ ללא עלות
                 והתחייבות, עם איש קשר אישי שמלווה אתכם לאורך כל הדרך.
               </p>
-              <a href={ctaHref} className="btn-primary info-aside__cta">
-                קבלת הצעה
-              </a>
+              {calculator ? (
+                <Link href={calculator} className="btn-primary info-aside__cta">
+                  לחישוב הצעה ראשונית
+                </Link>
+              ) : (
+                <a href={ctaHref} className="btn-primary info-aside__cta">
+                  קבלת הצעה
+                </a>
+              )}
               <a href="tel:074-7506000" className="info-aside__phone">
                 074-7506000
               </a>
