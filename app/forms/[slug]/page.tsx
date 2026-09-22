@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FormRenderer from "@/components/FormRenderer";
-import { FORM_SLUGS, getForm, prefillableFields } from "@/lib/forms";
+import { FORM_SLUGS, formAudience, getForm, prefillableFields } from "@/lib/forms";
+import { caseOpenedBy, requestPrefillFromSimulator } from "@/lib/home-case";
+import { computeHomeQuote, decodeSnapshot, encodeSnapshot, roundShekel, type HomeQuoteInput, type HomeQuoteResult } from "@/lib/home-quote";
 import { SITE, TEL_HREF } from "@/lib/site";
 import { verifyPrefillToken } from "@/lib/prefill";
 
@@ -32,10 +34,59 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
+/** The estimate the customer brought along from the simulator. */
+function EstimateCard({ input, result }: { input: HomeQuoteInput; result: HomeQuoteResult }) {
+  const back = `/simulator/home?sim=${encodeURIComponent(encodeSnapshot(input))}`;
+  return (
+    <aside className="fform__estimate" aria-label="ההערכה הראשונית מהמחשבון">
+      <div className="fform__estimate-main">
+        <span className="fform__estimate-label">ההערכה הראשונית שלכם</span>
+        <span className="fform__estimate-total">
+          {result.blocked ? "לפי חתם" : `${roundShekel(result.total).toLocaleString("he-IL")} ₪`}
+          {!result.blocked && <small> לשנה</small>}
+        </span>
+        <span className="fform__estimate-sub">
+          {input.apartmentType} · {Math.round(input.areaM2)} מ״ר
+          {input.buildingSum > 0 ? ` · מבנה ${Math.round(input.buildingSum).toLocaleString("he-IL")} ₪` : ""}
+          {input.contentsSum > 0 ? ` · תכולה ${Math.round(input.contentsSum).toLocaleString("he-IL")} ₪` : ""}
+        </span>
+      </div>
+      <div className="fform__estimate-side">
+        <p>הערכה בלבד. ההצעה הסופית תישלח אליכם לאחר בדיקה, וכפופה לחיתום ולתנאי חברת הביטוח.</p>
+        <Link href={back} className="fform__estimate-link">
+          לשינוי הנתונים במחשבון
+        </Link>
+      </div>
+    </aside>
+  );
+}
+
+/** A token-only form opened without its link: say so, do not show a form that cannot be sent. */
+function LinkExpired({ title }: { title: string }) {
+  return (
+    <div className="fform__expired" role="status">
+      <h2 className="fform__done-title">הקישור אינו תקין או שפג תוקפו</h2>
+      <p className="fform__done-body">
+        הטופס &quot;{title}&quot; נפתח רק מקישור אישי שהסוכנות שולחת, ותוקפו שבועיים. בקשו מאיתנו קישור חדש ונשלח אותו
+        מיד.
+      </p>
+      <div className="fform__done-actions">
+        <a className="map-btn map-btn--primary" href={TEL_HREF} dir="ltr">
+          {SITE.phoneDisplay}
+        </a>
+        <Link className="map-btn" href="/">
+          לעמוד הבית
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export default async function FormPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const form = getForm(slug);
-  if (!form) notFound();
+  // An agency form is filled in the back-office; on the public site it does not exist.
+  if (!form || formAudience(form) === "agency") notFound();
 
   const query = await searchParams;
   const prefill: Record<string, string> = {};
@@ -48,6 +99,21 @@ export default async function FormPage({ params, searchParams }: PageProps) {
     if (value) prefill[key] = value.slice(0, 120);
   }
 
+  // A request that arrives from the simulator carries the inputs in `sim`. The
+  // estimate is recomputed here, shown above the form, and the matching
+  // answers are filled in so the customer does not type the same thing twice.
+  let estimate: { input: HomeQuoteInput; result: HomeQuoteResult } | null = null;
+  let context: Record<string, unknown> | undefined;
+  if (caseOpenedBy(form)) {
+    const rawSim = Array.isArray(query.sim) ? query.sim[0] : query.sim;
+    const input = decodeSnapshot(rawSim);
+    if (input) {
+      estimate = { input, result: computeHomeQuote(input) };
+      Object.assign(prefill, requestPrefillFromSimulator(input));
+      context = { simulator: encodeSnapshot(input) };
+    }
+  }
+
   // A signed `?p=` token is the agency re-sending this form with answers already
   // filled, some of them locked. It wins over the loose query parameters above,
   // which anyone can type. The token itself is passed on to the renderer so it
@@ -55,8 +121,9 @@ export default async function FormPage({ params, searchParams }: PageProps) {
   // lock enforced only in the browser is decoration.
   const rawToken = Array.isArray(query.p) ? query.p[0] : query.p;
   const sent = verifyPrefillToken(rawToken);
-  const locked = sent && sent.slug === slug ? sent.locked : [];
-  if (sent && sent.slug === slug) Object.assign(prefill, sent.values);
+  const tokenOk = Boolean(sent && sent.slug === slug);
+  const locked = sent && tokenOk ? sent.locked : [];
+  if (sent && tokenOk) Object.assign(prefill, sent.values);
 
   return (
     <>
@@ -81,12 +148,20 @@ export default async function FormPage({ params, searchParams }: PageProps) {
             ונשלים יחד.
           </p>
 
-          <FormRenderer
-            form={form}
-            prefill={prefill}
-            locked={locked}
-            prefillToken={sent && sent.slug === slug ? rawToken : undefined}
-          />
+          {form.requiresToken && !tokenOk ? (
+            <LinkExpired title={form.title} />
+          ) : (
+            <>
+              {estimate && <EstimateCard input={estimate.input} result={estimate.result} />}
+              <FormRenderer
+                form={form}
+                prefill={prefill}
+                locked={locked}
+                prefillToken={tokenOk ? rawToken : undefined}
+                context={context}
+              />
+            </>
+          )}
         </div>
       </main>
 

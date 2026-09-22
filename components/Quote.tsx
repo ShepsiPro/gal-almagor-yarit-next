@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { SIMULATOR_ENABLED } from "@/lib/site";
 
 /**
  * Frizbi "bafi" insurance simulator, embedded in referrer-frame mode.
@@ -21,7 +22,20 @@ function referrerIdFor(hostname: string): "195" | "196" {
   return "196";
 }
 
-export default function Quote({ leadHref = "#contact" }: { leadHref?: string } = {}) {
+type QuoteProps = { leadHref?: string };
+
+/**
+ * Public entry point. While SIMULATOR_ENABLED is off (lib/site.ts) this
+ * renders nothing, so no page can load frizbi.co.il by accident even if it
+ * still mounts <Quote />. The pages skip the mount as well; this is the
+ * backstop.
+ */
+export default function Quote(props: QuoteProps = {}) {
+  if (!SIMULATOR_ENABLED) return null;
+  return <QuoteSection {...props} />;
+}
+
+function QuoteSection({ leadHref = "#contact" }: QuoteProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [src, setSrc] = useState<string | null>(null);
 

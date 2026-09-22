@@ -8,6 +8,7 @@ import WhyUs from "@/components/WhyUs";
 import Partners from "@/components/Partners";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
+import { SIMULATOR_ENABLED } from "@/lib/site";
 
 export default function Home() {
   return (
@@ -16,7 +17,7 @@ export default function Home() {
       <Hero />
       <Stats />
       <Categories />
-      <Quote />
+      {SIMULATOR_ENABLED && <Quote />}
       <About />
       <WhyUs />
       <Partners />

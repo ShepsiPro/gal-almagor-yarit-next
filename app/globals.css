@@ -2203,3 +2203,255 @@ input.fform__file-input {
   .adm__pick { grid-template-columns: auto 1fr; }
   .adm__pickvalue, .adm__pickstate { grid-column: 2; }
 }
+
+/* Mslahtk pipeline status, mirrored into the back-office. */
+.adm__status {
+  display: inline-block; padding: 4px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; background: #eef2f6; color: #344054; white-space: nowrap;
+}
+.adm__status--new { background: #e6f1fb; color: #1849a9; }
+.adm__status--contacted, .adm__status--qualified { background: #fff4e5; color: #b54708; }
+.adm__status--won { background: #e6f7ee; color: #067647; }
+.adm__status--lost, .adm__status--rejected { background: #f2f4f7; color: #667085; }
+.adm__status--pending { background: #f9fafb; color: #98a2b3; border: 1px dashed #d0d5dd; font-weight: 500; }
+
+/* ── Home insurance simulator (/simulator/home) ─────────────────────────── */
+.fpage__inner--wide { max-width: 1180px; }
+.sim__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 28px;
+  align-items: start;
+  margin-top: 36px;
+}
+.sim__form { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.sim__section-body { display: flex; flex-direction: column; gap: 18px; }
+.sim__chips { margin: 0; }
+.sim__result {
+  position: sticky;
+  top: 24px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 26px;
+  box-shadow: 0 12px 32px rgba(20, 47, 77, 0.06);
+}
+.sim__result-label { font-size: 12px; letter-spacing: 0.06em; color: var(--muted); font-weight: 700; }
+.sim__total {
+  font-size: 44px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 8px 0 2px;
+}
+.sim__total small { font-size: 15px; font-weight: 400; color: var(--muted); margin-inline-start: 6px; }
+.sim__per { font-size: 13px; color: var(--muted); margin: 0; }
+.sim__cta { display: flex; flex-direction: column; gap: 10px; margin: 18px 0 4px; }
+.sim__cta .map-btn { justify-content: center; }
+.sim__toggle-lines {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 12px;
+}
+.sim__lines { list-style: none; margin: 12px 0 0; padding: 12px 0 0; border-top: 1px solid var(--line); font-size: 13px; }
+.sim__line { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; color: var(--ink); }
+.sim__line--discount { color: #067647; }
+.sim__line--sum { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 10px; font-weight: 700; }
+.sim__sub { font-size: 12px; letter-spacing: 0.06em; font-weight: 700; color: var(--ink); margin: 18px 0 6px; }
+.sim__list { list-style: none; margin: 0; padding: 0; font-size: 13px; line-height: 1.55; color: var(--muted); display: flex; flex-direction: column; gap: 5px; }
+.sim__list li { padding-inline-start: 16px; position: relative; }
+.sim__list li::before { content: ""; position: absolute; inset-inline-start: 0; top: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.sim__list--plain li::before { background: var(--line); }
+.sim__warn {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: #FFF7ED;
+  border: 1px solid #F4D2A6;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #9A3412;
+}
+.sim__warn p { margin: 0 0 6px; }
+.sim__warn p:last-child { margin: 0; }
+.sim__disclaimer { margin: 16px 0 0; font-size: 11.5px; line-height: 1.6; color: var(--muted); }
+.sim__hint { font-size: 12px; color: var(--muted); margin: 6px 0 0; line-height: 1.5; }
+.sim__toggles { display: flex; flex-wrap: wrap; gap: 10px; }
+.sim__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.sim__more { border: 1px dashed var(--line); border-radius: 8px; background: #fff; }
+.sim__more summary {
+  cursor: pointer;
+  padding: 20px 28px;
+  font-weight: 700;
+  font-size: 17px;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sim__more summary::-webkit-details-marker { display: none; }
+.sim__more summary::after { content: "+"; color: var(--accent); font-size: 22px; font-weight: 400; }
+.sim__more[open] summary::after { content: "-"; }
+.sim__more-body { padding: 0 28px 28px; display: flex; flex-direction: column; gap: 22px; }
+.sim__abroad-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sim__bar { display: none; }
+@media (max-width: 960px) {
+  .sim__layout { grid-template-columns: 1fr; }
+  .sim__result { position: static; }
+  .sim__row { grid-template-columns: 1fr; }
+  .sim__more summary { padding: 18px 20px; }
+  .sim__more-body { padding: 0 20px 20px; }
+  .sim__bar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    inset-inline: 0;
+    z-index: 20;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #fff;
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -8px 24px rgba(20, 47, 77, 0.08);
+  }
+  .sim__bar-total { font-size: 20px; font-weight: 700; }
+  .sim__bar-total small { font-size: 12px; font-weight: 400; color: var(--muted); margin-inline-start: 4px; }
+  .fpage.sim { padding-bottom: 120px; }
+}
+
+/* The estimate a request form arrives with from the simulator */
+.fform__estimate {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: center;
+  background: var(--ink);
+  color: #fff;
+  border-radius: 8px;
+  padding: 22px 26px;
+}
+.fform__estimate-label { display: block; font-size: 12px; letter-spacing: 0.08em; opacity: 0.75; }
+.fform__estimate-total { display: block; font-size: 34px; font-weight: 700; letter-spacing: -0.02em; margin-top: 4px; }
+.fform__estimate-total small { font-size: 14px; font-weight: 400; opacity: 0.8; margin-inline-start: 6px; }
+.fform__estimate-sub { display: block; font-size: 13px; opacity: 0.8; margin-top: 4px; }
+.fform__estimate-side p { margin: 0 0 8px; font-size: 13px; line-height: 1.6; opacity: 0.85; }
+.fform__estimate-link { color: #E7CF8A; font-weight: 700; text-decoration: none; font-size: 13px; }
+.fform__estimate-link:hover { text-decoration: underline; opacity: 1; }
+@media (max-width: 768px) { .fform__estimate { grid-template-columns: 1fr; padding: 20px; } }
+
+/* A link-only form opened without its link */
+.fform__expired {
+  margin-top: 36px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 48px 32px;
+  text-align: center;
+}
+
+/* ── Back-office: a case file ─────────────────────────────────────────────── */
+.adm__main--wide { max-width: 1320px; }
+.adm__case { background: #fff; border: 1px solid #e4e7ec; border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+.adm__case-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.adm__steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.adm__step {
+  border: 1px solid #e4e7ec; border-radius: 10px; padding: 12px 14px; background: #fcfcfd;
+  min-width: 0; display: flex; flex-direction: column; gap: 6px;
+}
+.adm__step.is-done { border-color: #a6f4c5; background: #f6fef9; }
+.adm__step.is-next { border-color: #b2ddff; background: #f5faff; }
+.adm__step-num { font-size: 11px; font-weight: 700; color: #667085; letter-spacing: 0.06em; }
+.adm__step-title { font-weight: 700; color: #101828; font-size: 14px; }
+.adm__step-body { font-size: 13px; color: #344054; line-height: 1.5; word-break: break-word; }
+.adm__step-body p { margin: 0 0 4px; }
+.adm__step-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; padding-top: 6px; }
+.adm__sim {
+  display: flex; gap: 18px; flex-wrap: wrap; align-items: center;
+  padding: 12px 14px; border: 1px solid #e4e7ec; border-radius: 10px; background: #fcfcfd;
+  margin-bottom: 14px; font-size: 13px; color: #344054;
+}
+.adm__sim strong { font-size: 18px; color: #101828; }
+.adm__sim .adm__btn { margin-inline-start: auto; }
+.adm__split { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 18px; align-items: start; }
+.adm__split-side { position: sticky; top: 64px; max-height: calc(100vh - 80px); overflow: auto; padding-inline-end: 4px; }
+.adm__split-main .fform { margin-top: 0; }
+.adm__split-main .fform__section { box-shadow: none; border-radius: 12px; }
+.adm__linkbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.adm__status--stage-request { background: #e6f1fb; color: #1849a9; }
+.adm__status--stage-offer { background: #fff4e5; color: #b54708; }
+.adm__status--stage-sent { background: #efe7fd; color: #6941c6; }
+.adm__status--stage-approved { background: #e6f7ee; color: #067647; }
+.adm__status--stage-change { background: #fff4e5; color: #b54708; }
+.adm__status--stage-declined { background: #f2f4f7; color: #667085; }
+@media (max-width: 960px) {
+  .adm__steps { grid-template-columns: 1fr 1fr; }
+  .adm__split { grid-template-columns: 1fr; }
+  .adm__split-side { position: static; max-height: none; }
+}
+@media (max-width: 560px) { .adm__steps { grid-template-columns: 1fr; } }
+
+/* ── Drawn signature ──────────────────────────────────────────────────────── */
+.fform__sig { position: relative; }
+.fform__sig-canvas {
+  display: block;
+  width: 100%;
+  height: 190px;
+  background: #fff;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: crosshair;
+}
+.fform__cell--error .fform__sig-canvas { border-color: #C0392B; background: #FDF3F2; }
+.fform__sig-line {
+  position: absolute;
+  inset-inline: 28px;
+  top: 138px;
+  border-top: 1px solid var(--line);
+  pointer-events: none;
+}
+.fform__sig-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.fform__sig-clear {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--ink);
+}
+.fform__sig-clear:hover { border-color: var(--accent); color: var(--accent); }
+.fform__sig-clear:disabled { opacity: 0.45; cursor: default; }
+@media (max-width: 768px) {
+  .fform__sig-canvas { height: 170px; }
+  .fform__sig-line { top: 122px; }
+}
+.adm__sigimg {
+  display: block;
+  max-height: 110px;
+  max-width: 100%;
+  border: 1px solid #e4e7ec;
+  border-radius: 6px;
+  background: #fff;
+  padding: 6px;
+}

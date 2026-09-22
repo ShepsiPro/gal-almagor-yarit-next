@@ -12,8 +12,11 @@
 
 import { createHmac } from "node:crypto";
 
-const args = process.argv.slice(2).filter((a) => a !== "--prod");
-const prod = process.argv.includes("--prod");
+const argv = process.argv.slice(2);
+const prod = argv.includes("--prod");
+// --origin http://localhost:3140  (the dev server's port, or a LAN address for a phone)
+const originArg = argv.includes("--origin") ? argv[argv.indexOf("--origin") + 1] : null;
+const args = argv.filter((a, i) => a !== "--prod" && a !== "--origin" && argv[i - 1] !== "--origin");
 const email = args[0] || "agency@almagor-yaarit.com";
 
 const secret = process.env.ADMIN_LINK_SECRET || "yarit-admin-dev-secret";
@@ -36,7 +39,7 @@ const payload = Buffer.from(
 ).toString("base64url");
 
 const token = `${payload}.${createHmac("sha256", secret).update(payload).digest("base64url")}`;
-const origin = prod ? "https://almagor-yaarit.com" : "http://localhost:3100";
+const origin = (originArg || (prod ? "https://almagor-yaarit.com" : "http://localhost:3100")).replace(/\/+$/, "");
 
 console.log(`${origin}/admin/entry?t=${encodeURIComponent(token)}`);
 console.log("\n· valid 15 minutes, then it is exchanged for an 8-hour session cookie");

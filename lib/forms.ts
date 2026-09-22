@@ -21,6 +21,7 @@ export type FieldType =
   | "id" // Israeli ת.ז. / ח.פ., check-digit validated
   | "file"
   | "consent" // single required opt-in
+  | "signature" // drawn by hand (finger or mouse); posted as a PNG file
   | "statement"; // static legal text, no input
 
 /**
@@ -81,6 +82,9 @@ export type FormSection = {
   fields: readonly FormField[];
 };
 
+export type FormAudience = "customer" | "agency";
+export type CaseRole = "request" | "offer" | "answer";
+
 export type FormDef = {
   slug: string;
   eyebrow: string;
@@ -90,7 +94,44 @@ export type FormDef = {
   successTitle: string;
   successBody: string;
   sections: readonly FormSection[];
+  /**
+   * Who fills it. An "agency" form is filled in the back-office (posted to
+   * /admin/forms/<slug> under the admin session): it is never listed on the
+   * public index and never accepted from the public API. Default "customer".
+   */
+  audience?: FormAudience;
+  /**
+   * Only reachable through a signed link the agency sends: the page shows a
+   * "link expired" notice without a valid token and the API refuses the post.
+   */
+  requiresToken?: boolean;
+  /** The multi-form case this form is a stage of (see CASES). */
+  caseKey?: string;
+  caseRole?: CaseRole;
 };
+
+/**
+ * A case is one file made of three forms: the customer's request opens it,
+ * the agency's offer is filed against it, and the customer's signed answer
+ * closes it. lib/home-case.ts does the work; this is just the wiring.
+ */
+export type CaseDef = {
+  key: string;
+  title: string;
+  request: string;
+  offer: string;
+  answer: string;
+  /** Where the customer starts, if the case has a calculator. */
+  simulatorPath?: string;
+};
+
+export const CASES: readonly CaseDef[] = [
+  { key: "home", title: "תיק ביטוח דירה", request: "home-request", offer: "home-offer", answer: "home-answer", simulatorPath: "/simulator/home" },
+];
+
+export function getCase(key: string | undefined | null): CaseDef | undefined {
+  return CASES.find((c) => c.key === key);
+}
 
 const INSURERS = [
   "איילון",
@@ -105,6 +146,7 @@ const INSURERS = [
 ] as const;
 
 const YES_NO = ["כן", "לא"] as const;
+const YES_NO_NEG = ["לא", "כן"] as const;
 
 const HISTORY_TYPES = ["יש מקיף", "יש צד ג'", "אין"] as const;
 
@@ -480,11 +522,10 @@ export const FORMS: readonly FormDef[] = [
           { name: "sign_time", label: "שעה", type: "time", half: true },
           {
             name: "signature_text",
-            label: "חתימה — הקלדת שם מלא כאישור",
-            type: "text",
+            label: "חתימת המבוטח",
+            type: "signature",
             required: true,
-            placeholder: "הקלידו את שמכם המלא כאישור חתימה",
-            help: "הקלדת השם המלא מהווה אישור וחתימה על ההצהרות שבטופס.",
+            help: "החתימה מהווה אישור על ההצהרות שבטופס.",
           },
         ],
       },
@@ -553,12 +594,565 @@ export const FORMS: readonly FormDef[] = [
       { title: "אישור", fields: [CONSENT_FIELD] },
     ],
   },
+  // ── ביטוח דירה: a three-form case (lib/home-case.ts) ──────────────────────
+  //
+  // The customer starts at the simulator (/simulator/home), then files form 1
+  // below. The agency answers with form 2 from the back-office, beside the
+  // customer's answers, and sends form 3 as a signed link with the offer's
+  // numbers locked in. The three share `caseKey: "home"`.
+
+  {
+    slug: "home-request",
+    eyebrow: "ביטוח דירה",
+    title: "פנייה להצעת ביטוח לדירת מגורים",
+    intro:
+      "מלאו את פרטי הדירה והכיסויים שמעניינים אתכם. על סמך הפרטים נבדוק ביטוחים קיימים (בהרשאתכם), נקבל הצעות מחברות הביטוח ונחזור אליכם עם הצעה מסודרת. התשובות נשמרות בדפדפן, כך שאפשר לעצור ולחזור.",
+    submitLabel: "שליחת הבקשה",
+    successTitle: "הבקשה נשלחה",
+    successBody:
+      "קיבלנו את הפרטים. נבדוק את הביטוחים הקיימים ואת האפשרויות מול חברות הביטוח, ונשלח לכם הצעת ביטוח מסודרת. אם משהו דחוף, אפשר להתקשר אלינו ישירות.",
+    caseKey: "home",
+    caseRole: "request",
+    sections: [
+      {
+        title: "פרטי המועמד לביטוח",
+        fields: [
+          { name: "full_name", label: "שם מלא", type: "text", required: true, half: true, identity: "name", prefillable: true },
+          { name: "id_number", label: "מספר תעודת זהות", type: "id", required: true, half: true },
+          { name: "birth_date", label: "תאריך לידה", type: "date", half: true },
+          { name: "id_issue_date", label: "תאריך הנפקת תעודת הזהות", type: "date", half: true },
+          { name: "phone", label: "טלפון נייד", type: "tel", required: true, placeholder: "050-0000000", half: true, prefillable: true },
+          { name: "email", label: "דוא״ל", type: "email", placeholder: "you@example.com", half: true, prefillable: true },
+          { name: "household_size", label: "מספר נפשות המתגוררות בדירה", type: "number", min: 1, max: 30, half: true },
+          { name: "residence_status", label: "מעמד בדירה", type: "radio", required: true, options: ["בעלים", "שוכר", "אחר"] },
+        ],
+      },
+      {
+        title: "כתובת הדירה לביטוח",
+        fields: [
+          { name: "street", label: "רחוב", type: "text", required: true, half: true },
+          { name: "house_no", label: "מספר", type: "text", required: true, half: true },
+          { name: "apartment_no", label: "דירה", type: "text", half: true },
+          { name: "city", label: "יישוב", type: "text", required: true, half: true },
+          { name: "zip", label: "מיקוד", type: "text", half: true },
+        ],
+      },
+      {
+        title: "פרטי הדירה",
+        fields: [
+          {
+            name: "property_type",
+            label: "סוג הנכס",
+            type: "radio",
+            required: true,
+            options: ["דירה בבית משותף", "בית פרטי", "דו-משפחתי / קוטג'", "אחר"],
+          },
+          { name: "area_m2", label: 'שטח הדירה במ"ר', type: "number", required: true, min: 10, max: 5000, half: true },
+          { name: "floor", label: "קומה", type: "text", half: true },
+          { name: "building_floors", label: "מספר קומות בבניין", type: "text", half: true },
+          { name: "build_year", label: "שנת בנייה משוערת", type: "number", min: 1900, max: 2100, half: true },
+          {
+            name: "apartment_use",
+            label: "השימוש בדירה",
+            type: "radio",
+            required: true,
+            options: ["מגורי המבוטח", "מושכרת למגורים", "דירה שאינה מאוכלסת דרך קבע", "אחר"],
+          },
+          { name: "business_activity", label: "האם מתנהלת בדירה פעילות עסקית?", type: "radio", required: true, options: YES_NO_NEG },
+          {
+            name: "business_activity_details",
+            label: "פירוט הפעילות העסקית",
+            type: "text",
+            required: true,
+            placeholder: "לדוגמה: משרד, קליניקה, סטודיו",
+            showWhen: { field: "business_activity", equals: "כן" },
+          },
+          {
+            name: "protection",
+            label: "אמצעי מיגון",
+            type: "checkbox",
+            options: ["דלת כניסה ממוגנת / פלדלת", "אזעקה", "סורגים", "אחר", "אין"],
+            exclusive: [
+              ["אין", "דלת כניסה ממוגנת / פלדלת"],
+              ["אין", "אזעקה"],
+              ["אין", "סורגים"],
+              ["אין", "אחר"],
+            ],
+          },
+        ],
+      },
+      {
+        title: "הביטוח המבוקש",
+        fields: [
+          {
+            name: "insurance_kind",
+            label: "אני מבקש/ת לקבל הצעה עבור",
+            type: "radio",
+            required: true,
+            options: ["ביטוח מבנה בלבד", "ביטוח תכולה בלבד", "ביטוח מבנה ותכולה"],
+          },
+          {
+            name: "building_sum",
+            label: "סכום ביטוח המבנה המבוקש (₪)",
+            type: "number",
+            min: 0,
+            half: true,
+            help: 'נתון עזר בלבד: עלות בנייה למ"ר למבנה סטנדרטי, נכון להיום, כ-7,000 ₪ למ"ר.',
+            showWhen: { field: "insurance_kind", notEquals: "ביטוח תכולה בלבד" },
+          },
+          {
+            name: "contents_sum",
+            label: "סכום ביטוח התכולה המבוקש (₪)",
+            type: "number",
+            min: 0,
+            half: true,
+            showWhen: { field: "insurance_kind", notEquals: "ביטוח מבנה בלבד" },
+          },
+          {
+            name: "contents_help",
+            label: "אם איני יודע/ת את סכום התכולה",
+            type: "checkbox",
+            options: ["אבקש סיוע בקביעת סכום הביטוח"],
+            showWhen: { field: "insurance_kind", notEquals: "ביטוח מבנה בלבד" },
+          },
+          { name: "mortgage", label: "האם קיימת משכנתה על הדירה?", type: "radio", required: true, options: YES_NO_NEG },
+          {
+            name: "mortgage_bank",
+            label: "שם הבנק / הגוף המלווה",
+            type: "text",
+            required: true,
+            half: true,
+            showWhen: { field: "mortgage", equals: "כן" },
+          },
+          { name: "mortgage_branch", label: "סניף, אם ידוע", type: "text", half: true, showWhen: { field: "mortgage", equals: "כן" } },
+        ],
+      },
+      {
+        title: "עבר ביטוחי ותביעות",
+        fields: [
+          {
+            name: "currently_insured",
+            label: "האם הדירה מבוטחת כיום?",
+            type: "radio",
+            required: true,
+            options: ["לא", "כן", "איני יודע/ת"],
+          },
+          { name: "current_insurer", label: "חברת הביטוח", type: "text", half: true, showWhen: { field: "currently_insured", equals: "כן" } },
+          {
+            name: "current_end_date",
+            label: "מועד סיום הביטוח הקיים, אם ידוע",
+            type: "date",
+            half: true,
+            showWhen: { field: "currently_insured", equals: "כן" },
+          },
+          {
+            name: "claims_3y",
+            label: "האם היו במהלך 3 השנים האחרונות תביעות או נזקים הקשורים לדירה או לתכולתה?",
+            type: "radio",
+            required: true,
+            options: YES_NO_NEG,
+          },
+          {
+            name: "claims_details",
+            label: "נא לפרט בקצרה",
+            type: "textarea",
+            required: true,
+            showWhen: { field: "claims_3y", equals: "כן" },
+          },
+          {
+            name: "refused_before",
+            label: "האם חברת ביטוח סירבה בעבר לבטח את הדירה, ביטלה ביטוח או דרשה תנאים מיוחדים?",
+            type: "radio",
+            required: true,
+            options: YES_NO_NEG,
+          },
+          {
+            name: "refused_details",
+            label: "נא לפרט",
+            type: "textarea",
+            required: true,
+            showWhen: { field: "refused_before", equals: "כן" },
+          },
+        ],
+      },
+      {
+        title: 'הרשאה לבדיקת ביטוחים באתר "הר הביטוח"',
+        fields: [
+          {
+            name: "har_statement",
+            label: "",
+            type: "statement",
+            body:
+              'לצורך בירור צרכיי הביטוחיים, בדיקת ביטוחים קיימים ומניעת כפל ביטוחי, אני מאשר/ת ומייפה את כוחו של סוכן הביטוח / סוכנות הביטוח לבצע עבורי חיפוש באתר "הר הביטוח", בהתאם להוראות הדין והוראות רשות שוק ההון, ביטוח וחיסכון.\n\nהרשאה זו תקפה למשך חמישה ימי עבודה ממועד חתימתה.',
+          },
+          {
+            name: "har_consent",
+            label: "הרשאה",
+            type: "checkbox",
+            options: ['אני מאשר/ת ביצוע בדיקה באתר "הר הביטוח"'],
+            help: "ההרשאה אינה חובה, אך בלעדיה לא נוכל לבדוק ביטוחים קיימים ולמנוע כפל ביטוח.",
+          },
+        ],
+      },
+      {
+        title: "בירור והתאמת צרכים",
+        fields: [
+          {
+            name: "earthquake",
+            label: "רעידת אדמה",
+            type: "radio",
+            required: true,
+            options: ["מעוניין/ת בכיסוי", "מבקש/ת לבחון אפשרות לוותר על הכיסוי ולקבל הסבר לפני קבלת החלטה"],
+          },
+          { name: "water", label: "נזקי מים וצנרת", type: "checkbox", options: ["מעוניין/ת בכיסוי"] },
+          {
+            name: "water_route",
+            label: "מסלול נזקי מים",
+            type: "radio",
+            required: true,
+            options: ["מסלול שרברב שבהסדר", "מסלול שרברב פרטי", "מבקש/ת לקבל הסבר לפני הבחירה"],
+            showWhen: { field: "water", equals: "מעוניין/ת בכיסוי" },
+          },
+          {
+            name: "third_party_statement",
+            label: "",
+            type: "statement",
+            body:
+              "אחריות כלפי צד שלישי: הפוליסה המוצעת על ידי הסוכנות תכלול כיסוי אחריות כלפי צד שלישי לנזק גוף ו/או רכוש, בכפוף לכך שהכיסוי יצוין במפרט הפוליסה ובכפוף לתנאיה.",
+          },
+          { name: "jewelry", label: "תכשיטים וחפצי ערך", type: "radio", required: true, options: ["מעוניין/ת בכיסוי", "לא מעוניין/ת"] },
+          {
+            name: "jewelry_sum",
+            label: "סכום הביטוח המבוקש לתכשיטים וחפצי ערך (₪)",
+            type: "number",
+            min: 0,
+            half: true,
+            showWhen: { field: "jewelry", equals: "מעוניין/ת בכיסוי" },
+          },
+          {
+            name: "jewelry_statement",
+            label: "",
+            type: "statement",
+            body:
+              "ביטוח תכשיטים וחפצי ערך ניתן לרכוש אך ורק בצירוף פירוט מדויק ו/או הערכת סוקר מטעם חברת הביטוח, ובכפוף לתנאי הפוליסה.",
+            showWhen: { field: "jewelry", equals: "מעוניין/ת בכיסוי" },
+          },
+          {
+            name: "extras",
+            label: "הרחבות נוספות",
+            type: "checkbox",
+            options: ["אופניים / אופניים חשמליים (בכפוף לתנאי הפוליסה)", "פעילות עסקית בדירה (בכפוף לתנאי הפוליסה)", "אין הרחבות נוספות"],
+            exclusive: [
+              ["אין הרחבות נוספות", "אופניים / אופניים חשמליים (בכפוף לתנאי הפוליסה)"],
+              ["אין הרחבות נוספות", "פעילות עסקית בדירה (בכפוף לתנאי הפוליסה)"],
+            ],
+          },
+          { name: "extras_other", label: "הרחבה אחרת", type: "text" },
+        ],
+      },
+      {
+        title: "מידע נוסף",
+        fields: [
+          {
+            name: "more_info",
+            label: "מידע נוסף שחשוב שנדע לצורך התאמת הביטוח וקבלת ההצעה",
+            type: "textarea",
+          },
+        ],
+      },
+      {
+        title: "המשך הטיפול בבקשה",
+        fields: [
+          {
+            name: "process_statement",
+            label: "",
+            type: "statement",
+            body:
+              "הפרטים שמסרתי בטופס זה ישמשו את הסוכנות לצורך בירור והתאמת צרכיי הביטוחיים, בדיקת ביטוחים קיימים בהתאם להרשאתי, קבלת הצעות מחברות ביטוח ובדיקת אפשרויות הביטוח בהתאם לנתונים שמסרתי.\n\nידוע לי כי תנאי הביטוח, הכיסויים, ההרחבות, סכומי הביטוח, ההשתתפויות העצמיות והפרמיה עשויים להשתנות בין חברות הביטוח והכול בכפוף לתנאי הפוליסה, לתנאי החיתום ולאישור החברה המבטחת.",
+          },
+        ],
+      },
+      {
+        title: "אמצעי תשלום, חשוב",
+        fields: [
+          {
+            name: "payment_statement",
+            label: "",
+            type: "statement",
+            body:
+              "אין להזין בטופס זה מספר כרטיס אשראי, תוקף, קוד אבטחה או פרטי אמצעי תשלום אחרים.\n\nפרטי אמצעי התשלום יימסרו בנפרד לסוכנות באמצעות ערוץ מאובטח או בדרך אחרת שתתואם עם המועמד לביטוח.",
+          },
+        ],
+      },
+      {
+        title: "הצהרת המועמד לביטוח",
+        fields: [
+          {
+            name: "declaration_statement",
+            label: "",
+            type: "statement",
+            body:
+              "אני מצהיר/ה כי הפרטים והמידע שמסרתי בטופס זה נכונים ומלאים למיטב ידיעתי. אני מאשר/ת כי סימנתי את צרכיי ואת הכיסויים המבוקשים וכי ניתנה לי האפשרות לבקש מידע והסבר נוסף. ידוע לי כי ייתכן שאדרש למסור מידע או מסמכים נוספים בהתאם לדרישות החברה המבטחת ולתנאי החיתום. ידוע לי כי מילוי וחתימה על טופס זה אינם מהווים כשלעצמם אישור של חברת הביטוח לקבלת ההצעה או לקיומו של כיסוי ביטוחי.",
+          },
+          { name: "declaration_ack", label: "קראתי את ההצהרה ואני מאשר/ת אותה.", type: "consent", required: true },
+          { name: "sign_name", label: "שם המועמד לביטוח", type: "text", required: true, half: true },
+          { name: "sign_id", label: 'מספר ת"ז', type: "id", required: true, half: true },
+          { name: "sign_date", label: "תאריך", type: "date", required: true, half: true },
+          {
+            name: "signature_text",
+            label: "חתימת המועמד לביטוח",
+            type: "signature",
+            required: true,
+            help: "החתימה מהווה אישור על ההצהרה שבטופס.",
+          },
+        ],
+      },
+    ],
+  },
+
+  {
+    slug: "home-offer",
+    eyebrow: "טופס 2",
+    title: "הצעת ביטוח לדירת מגורים בהתאם לפנייתך",
+    intro:
+      "ההצעה נבנית על סמך הבקשה של הלקוח (טופס 1). הפרטים שמולאו מראש נלקחו מהבקשה ומהמחשבון, וניתן לשנות כל אחד מהם לפני השמירה.",
+    submitLabel: "שמירת ההצעה",
+    successTitle: "ההצעה נשמרה",
+    successBody: "ההצעה נשמרה בתיק. מעמוד התיק אפשר לשלוח ללקוח את טופס התשובה (טופס 3).",
+    audience: "agency",
+    caseKey: "home",
+    caseRole: "offer",
+    sections: [
+      {
+        title: "פרטי המבוטח",
+        fields: [
+          { name: "insured_name", label: "שם המבוטח", type: "text", required: true, half: true, identity: "name" },
+          { name: "insured_id", label: 'מספר ת"ז', type: "id", required: true, half: true },
+          { name: "insured_phone", label: "טלפון", type: "tel", required: true, half: true },
+          { name: "insured_address", label: "כתובת דירת המגורים לביטוח", type: "text", required: true, half: true },
+        ],
+      },
+      {
+        title: 'תוצאות בדיקת "הר הביטוח"',
+        fields: [
+          { name: "har_check_date", label: "תאריך הבדיקה", type: "date", half: true },
+          {
+            name: "har_result",
+            label: "תוצאות הבדיקה",
+            type: "radio",
+            required: true,
+            options: ["נמצא ביטוח דירה קיים", "לא נמצא ביטוח דירה קיים", "לא בוצעה בדיקה"],
+          },
+          {
+            name: "har_found_statement",
+            label: "",
+            type: "statement",
+            body:
+              "נמצא ביטוח דירה קיים: הצעת הביטוח נעצרת בשלב זה. לצורך בדיקת הביטוח הקיים ומתן הצעת ביטוח נכונה ומותאמת, יש לבקש מהלקוח העתק מלא ועדכני של פוליסת ביטוח הדירה הקיימת. לאחר קבלתה ובדיקתה ניתן להמשיך בטיפול.",
+            showWhen: { field: "har_result", equals: "נמצא ביטוח דירה קיים" },
+          },
+        ],
+      },
+      {
+        title: "הצעת הביטוח",
+        fields: [
+          { name: "insurer", label: "חברת הביטוח", type: "select", required: true, options: INSURERS, half: true },
+          { name: "period_start", label: "תחילת תקופת הביטוח", type: "date", required: true, half: true },
+          { name: "period_end", label: "סיום תקופת הביטוח", type: "date", required: true, half: true },
+          { name: "offered_kind", label: "הביטוח המוצע", type: "radio", required: true, options: ["מבנה בלבד", "תכולה בלבד", "מבנה ותכולה"] },
+          {
+            name: "building_sum",
+            label: "סכום ביטוח מבנה (₪)",
+            type: "number",
+            required: true,
+            min: 0,
+            half: true,
+            showWhen: { field: "offered_kind", notEquals: "תכולה בלבד" },
+          },
+          {
+            name: "contents_sum",
+            label: "סכום ביטוח תכולה (₪)",
+            type: "number",
+            required: true,
+            min: 0,
+            half: true,
+            showWhen: { field: "offered_kind", notEquals: "מבנה בלבד" },
+          },
+        ],
+      },
+      {
+        title: "הכיסויים הביטוחיים",
+        fields: [
+          { name: "earthquake", label: "רעידת אדמה", type: "radio", required: true, options: ["כלול", "לא כלול"] },
+          {
+            name: "water",
+            label: "נזקי מים וצנרת",
+            type: "radio",
+            required: true,
+            options: ["כלול: שרברב שבהסדר", "כלול: שרברב פרטי", "לא כלול"],
+          },
+          {
+            name: "third_party_statement",
+            label: "",
+            type: "statement",
+            body: "אחריות כלפי צד שלישי: הכיסוי כלול בהצעה, בכפוף לכך שיצוין במפרט הפוליסה ובכפוף לתנאיה.",
+          },
+          {
+            name: "jewelry_statement",
+            label: "",
+            type: "statement",
+            body:
+              "תכשיטים וחפצי ערך: לא כלול. במידה והמבוטח מעוניין לרכוש כיסוי, יש להמציא הערכה מפורטת מחנות תכשיטים/זהב ו/או הערכת סוקר מטעם חברת הביטוח. רק לאחר המצאת ההערכה ובכפוף לאישורה ולתנאי חברת הביטוח ניתן יהיה לבחון את הכללת הכיסוי.",
+          },
+          { name: "extras_included", label: "הרחבות נוספות הכלולות בהצעה", type: "text" },
+          { name: "extras_none", label: "הרחבות נוספות", type: "checkbox", options: ["אין הרחבות נוספות"] },
+        ],
+      },
+      {
+        title: "פרמיה והשתתפויות עצמיות",
+        fields: [
+          { name: "premium", label: "פרמיה שנתית כוללת (₪)", type: "number", required: true, min: 0, half: true },
+          { name: "payments", label: "מספר תשלומים", type: "number", required: true, min: 1, max: 12, half: true },
+          { name: "deductible_general", label: "השתתפות עצמית כללית", type: "text", required: true, half: true },
+          { name: "deductible_water", label: "השתתפות עצמית, נזקי מים וצנרת", type: "text", half: true },
+          { name: "deductible_earthquake", label: "השתתפות עצמית, רעידת אדמה", type: "text", half: true },
+          { name: "deductible_other", label: "השתתפות עצמית אחרת, ככל שקיימת", type: "text", half: true },
+        ],
+      },
+      {
+        title: "הערות הסוכנות",
+        fields: [
+          { name: "notes", label: "הערות", type: "textarea", placeholder: "הערות ללקוח על ההצעה, תנאים מיוחדים, מסמכים נדרשים" },
+          { name: "notes_none", label: "", type: "checkbox", options: ["אין הערות מיוחדות"] },
+        ],
+      },
+      {
+        title: "סיכום ההצעה",
+        fields: [
+          {
+            name: "summary_statement",
+            label: "",
+            type: "statement",
+            body:
+              "הצעת ביטוח זו נערכה בהתאם לפרטים, לנתונים ולצרכים שנמסרו בטופס 1. ההצעה כפופה לאישור חברת הביטוח, לתנאי החיתום ולתנאי הפוליסה. לאחר עיון בהצעה יש להשיב באמצעות טופס 3.",
+          },
+          { name: "agency_name", label: "שם הסוכנות", type: "text", required: true, half: true },
+          { name: "agent_name", label: "שם הסוכן/ת", type: "text", required: true, half: true },
+          { name: "offer_date", label: "תאריך ההצעה", type: "date", required: true, half: true },
+        ],
+      },
+    ],
+  },
+
+  {
+    slug: "home-answer",
+    eyebrow: "טופס 3",
+    title: "תשובת המבוטח להצעת ביטוח דירת מגורים",
+    intro:
+      "בהמשך להצעת ביטוח דירת המגורים (טופס 2) שנשלחה אליכם, ולאחר שעיינתם בהצעה ובפרטים שנמסרו לכם, סמנו את החלטתכם וחתמו. פרטי ההצעה מולאו מראש על ידי הסוכנות.",
+    submitLabel: "שליחת התשובה",
+    successTitle: "תשובתך התקבלה",
+    successBody:
+      "תודה. הסוכנות קיבלה את החלטתך ותמשיך בטיפול בהתאם. אם אישרת את ביצוע הביטוח, ניצור קשר לתיאום אמצעי התשלום בערוץ מאובטח. זכרו: אין כיסוי ביטוחי לפני אישור חברת הביטוח והפקת הפוליסה.",
+    requiresToken: true,
+    caseKey: "home",
+    caseRole: "answer",
+    sections: [
+      {
+        title: "פרטי המבוטח",
+        fields: [
+          { name: "insured_name", label: "שם המבוטח", type: "text", required: true, half: true, identity: "name" },
+          { name: "insured_id", label: 'מספר ת"ז', type: "id", required: true, half: true },
+          { name: "insured_address", label: "כתובת דירת המגורים לביטוח", type: "text", required: true },
+        ],
+      },
+      {
+        title: "פרטי ההצעה",
+        fields: [
+          { name: "insurer", label: "חברת הביטוח", type: "text", required: true, half: true },
+          { name: "premium", label: "פרמיה שנתית (₪)", type: "number", required: true, min: 0, half: true },
+          { name: "period_start", label: "מועד תחילת הביטוח המוצע", type: "date", required: true, half: true },
+        ],
+      },
+      {
+        title: "החלטת המבוטח",
+        fields: [
+          {
+            name: "decision",
+            label: "נא לסמן אפשרות אחת בלבד",
+            type: "radio",
+            required: true,
+            options: ["אני מאשר/ת את ביצוע הביטוח", "אני מבקש/ת שינוי או הבהרה לפני ביצוע הביטוח", "איני מעוניין/ת בביצוע הביטוח"],
+          },
+          {
+            name: "requested_start",
+            label: "מועד תחילת הביטוח המבוקש",
+            type: "date",
+            half: true,
+            help: "אם שונה מהמועד שבהצעה.",
+            showWhen: { field: "decision", equals: "אני מאשר/ת את ביצוע הביטוח" },
+          },
+          {
+            name: "change_details",
+            label: "נא לפרט את השינוי או ההבהרה המבוקשים",
+            type: "textarea",
+            required: true,
+            showWhen: { field: "decision", equals: "אני מבקש/ת שינוי או הבהרה לפני ביצוע הביטוח" },
+          },
+        ],
+      },
+      {
+        title: "אמצעי תשלום",
+        fields: [
+          {
+            name: "payment_statement",
+            label: "",
+            type: "statement",
+            body:
+              "במקרה שאישרתי את ביצוע הביטוח, ידוע לי כי אין למסור בטופס זה פרטי כרטיס אשראי או אמצעי תשלום. פרטי אמצעי התשלום יימסרו בנפרד לסוכנות באמצעות ערוץ מאובטח או בדרך אחרת שתתואם עמי.",
+          },
+        ],
+      },
+      {
+        title: "אישור וחתימת המבוטח",
+        fields: [
+          {
+            name: "confirm_statement",
+            label: "",
+            type: "statement",
+            body:
+              "אני מאשר/ת כי קיבלתי את טופס 2, הצעת ביטוח דירת מגורים, עיינתי בפרטי ההצעה וסימנתי לעיל את החלטתי. ככל שאישרתי את ביצוע הביטוח, אני מבקש/ת מהסוכנות לפעול לביצוע הביטוח בהתאם להצעה שאושרה על ידי ובכפוף לאישור חברת הביטוח ולתנאיה.\n\nידוע לי כי אין כיסוי ביטוחי כלשהו לפני אישור וביצוע הביטוח על ידי חברת הביטוח, לרבות הפקת פוליסת הביטוח בהתאם.",
+          },
+          { name: "confirm_ack", label: "קראתי את האישור ואני מאשר/ת אותו.", type: "consent", required: true },
+          { name: "sign_name", label: "שם המבוטח", type: "text", required: true, half: true },
+          { name: "sign_id", label: 'מספר ת"ז', type: "id", required: true, half: true },
+          { name: "sign_date", label: "תאריך", type: "date", required: true, half: true },
+          {
+            name: "signature_text",
+            label: "חתימת המבוטח",
+            type: "signature",
+            required: true,
+            help: "החתימה מהווה אישור על ההחלטה שבטופס.",
+          },
+        ],
+      },
+    ],
+  },
 ] as const;
 
 export const FORM_SLUGS = FORMS.map((f) => f.slug);
 
 export function getForm(slug: string): FormDef | undefined {
   return FORMS.find((f) => f.slug === slug);
+}
+
+export function formAudience(form: FormDef): FormAudience {
+  return form.audience ?? "customer";
+}
+
+/** Forms a customer can open from a plain link: not agency-only, not token-only. */
+export function publicForms(): FormDef[] {
+  return FORMS.filter((f) => formAudience(f) === "customer" && !f.requiresToken);
 }
 
 /** Every field of a form, flattened — used by both the renderer and the API. */
@@ -659,6 +1253,8 @@ export function isValidIsraeliId(value: string): boolean {
 export const MAX_FILE_BYTES = 8 * 1024 * 1024;
 export const MAX_TOTAL_BYTES = 12 * 1024 * 1024;
 export const MAX_FILES_PER_FIELD = 6;
+/** A drawn signature is a small PNG; anything bigger is not a signature. */
+export const SIGNATURE_MAX_BYTES = 300 * 1024;
 
 export const ACCEPTED_MIME = [
   "image/jpeg",

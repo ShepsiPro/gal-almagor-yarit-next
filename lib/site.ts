@@ -33,12 +33,20 @@ export const WA_HREF = `https://wa.me/${SITE.waNumber}`;
 export const TEL_HREF = `tel:${SITE.phoneE164}`;
 export const MAIL_HREF = `mailto:${SITE.email}`;
 
+// The Frizbi "bafi" quote simulator (components/Quote.tsx): an iframe served
+// from frizbi.co.il, shown on the homepage and on the car insurance page.
+// OFF while the site gets its final touches. The section itself, the
+// "הצעת מחיר" nav entries (header + footer) and the car page CTAs all follow
+// this one flag, so bringing it back is a single edit here. While it is off,
+// nothing is requested from frizbi.co.il at all.
+export const SIMULATOR_ENABLED: boolean = false;
+
 // Primary site navigation (homepage anchors).
 export const NAV_LINKS = [
   { href: "/about", label: "אודות" },
   { href: "/#why", label: "למה אנחנו" },
   { href: "/#partners", label: "חברות הביטוח" },
-  { href: "/#quote", label: "הצעת מחיר" },
+  ...(SIMULATOR_ENABLED ? [{ href: "/#quote", label: "הצעת מחיר" }] : []),
   { href: "/#contact", label: "צור קשר" },
 ] as const;
 

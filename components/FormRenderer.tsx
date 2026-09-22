@@ -15,6 +15,7 @@ import {
   type FormField,
 } from "@/lib/forms";
 import { SITE, TEL_HREF, WA_HREF } from "@/lib/site";
+import SignaturePad from "./SignaturePad";
 
 type Values = Record<string, string | string[]>;
 type FileMap = Record<string, File[]>;
@@ -55,11 +56,19 @@ async function compressImage(file: File): Promise<File> {
   }
 }
 
+export type FormMode = "customer" | "agency";
+
 export default function FormRenderer({
   form,
   prefill = {},
   locked = [],
   prefillToken,
+  action,
+  context,
+  extra,
+  mode = "customer",
+  doneHref,
+  doneLabel,
 }: {
   form: FormDef;
   prefill?: Record<string, string>;
@@ -67,9 +76,27 @@ export default function FormRenderer({
   locked?: string[];
   /** The signed token those locks came from, replayed with the submission. */
   prefillToken?: string;
+  /** Where to post. Default: the public door, /api/forms/<slug>. */
+  action?: string;
+  /**
+   * Anything the page wants filed WITH the answers but that is not an answer
+   * (the simulator snapshot a request arrived with). Posted as one JSON field,
+   * `_context`; the server decides what of it to keep.
+   */
+  context?: Record<string, unknown>;
+  /** Extra plain fields to post as they are (a case id for an offer). */
+  extra?: Record<string, string>;
+  /** "agency": the back-office fills it; no mailbox note, a "back" button when done. */
+  mode?: FormMode;
+  /** Where the done screen sends the person, instead of the phone buttons. */
+  doneHref?: string;
+  doneLabel?: string;
 }) {
   const lockedSet = useMemo(() => new Set(locked), [locked]);
   const fields = useMemo(() => allFields(form), [form]);
+  // A draft is per form, and in the back-office per case as well, so one
+  // customer's half-typed offer never shows up on the next customer's file.
+  const draftId = mode === "agency" ? `${form.slug}:${extra?._parent ?? ""}` : form.slug;
   const [values, setValues] = useState<Values>({});
   const [files, setFiles] = useState<FileMap>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -82,26 +109,26 @@ export default function FormRenderer({
   useEffect(() => {
     let restored: Values = {};
     try {
-      const raw = sessionStorage.getItem(draftKey(form.slug));
+      const raw = sessionStorage.getItem(draftKey(draftId));
       if (raw) restored = JSON.parse(raw) as Values;
     } catch {
       /* private mode / quota — fall through to the prefill only */
     }
-    setValues({ ...restored, ...prefill });
+    setValues({ ...restored, ...normalizePrefill(fields, prefill) });
     // prefill is derived from the URL and stable for the life of the page
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.slug]);
+  }, [draftId]);
 
   // Keep the draft alive across an accidental refresh. Text answers only —
   // File objects cannot be serialised, so uploads are re-picked after a reload.
   useEffect(() => {
     if (status === "done" || !Object.keys(values).length) return;
     try {
-      sessionStorage.setItem(draftKey(form.slug), JSON.stringify(values));
+      sessionStorage.setItem(draftKey(draftId), JSON.stringify(values));
     } catch {
       /* quota exceeded — the draft is a convenience, not a requirement */
     }
-  }, [values, form.slug, status]);
+  }, [values, draftId, status]);
 
   const totalBytes = Object.values(files)
     .flat()
@@ -162,6 +189,10 @@ export default function FormRenderer({
         if (value !== "on") next[f.name] = "יש לאשר כדי לשלוח";
         continue;
       }
+      if (f.type === "signature") {
+        if (f.required && !value) next[f.name] = "יש לחתום";
+        continue;
+      }
       if (f.required && !value) {
         next[f.name] = "שדה חובה";
         continue;
@@ -205,10 +236,17 @@ export default function FormRenderer({
     const body = new FormData();
     body.append("_hp", (values._hp as string) ?? "");
     if (prefillToken) body.append("_prefill", prefillToken);
+    if (context) body.append("_context", JSON.stringify(context));
+    for (const [k, v] of Object.entries(extra ?? {})) body.append(k, v);
     for (const f of fields) {
       if (f.type === "statement" || !isFieldVisible(form, f, values)) continue;
       if (f.type === "file") {
         for (const file of files[f.name] ?? []) body.append(f.name, file, file.name);
+        continue;
+      }
+      if (f.type === "signature") {
+        const blob = dataUrlToBlob(typeof values[f.name] === "string" ? (values[f.name] as string) : "");
+        if (blob) body.append(f.name, blob, "signature.png");
         continue;
       }
       const raw = values[f.name];
@@ -218,7 +256,7 @@ export default function FormRenderer({
 
     setStatus("sending");
     try {
-      const res = await fetch(`/api/forms/${form.slug}`, { method: "POST", body });
+      const res = await fetch(action ?? `/api/forms/${form.slug}`, { method: "POST", body });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
         setServerError(json.error ?? "השליחה נכשלה. נסו שוב.");
@@ -226,7 +264,7 @@ export default function FormRenderer({
         return;
       }
       try {
-        sessionStorage.removeItem(draftKey(form.slug));
+        sessionStorage.removeItem(draftKey(draftId));
       } catch {
         /* nothing to clean up */
       }
@@ -245,12 +283,20 @@ export default function FormRenderer({
         <h2 className="fform__done-title">{form.successTitle}</h2>
         <p className="fform__done-body">{form.successBody}</p>
         <div className="fform__done-actions">
-          <a className="map-btn map-btn--primary" href={TEL_HREF} dir="ltr">
-            {SITE.phoneDisplay}
-          </a>
-          <a className="map-btn" href={WA_HREF} target="_blank" rel="noopener noreferrer">
-            ווטסאפ
-          </a>
+          {doneHref ? (
+            <a className="map-btn map-btn--primary" href={doneHref}>
+              {doneLabel ?? "המשך"}
+            </a>
+          ) : (
+            <>
+              <a className="map-btn map-btn--primary" href={TEL_HREF} dir="ltr">
+                {SITE.phoneDisplay}
+              </a>
+              <a className="map-btn" href={WA_HREF} target="_blank" rel="noopener noreferrer">
+                ווטסאפ
+              </a>
+            </>
+          )}
         </div>
       </div>
     );
@@ -326,11 +372,48 @@ export default function FormRenderer({
             ? "שולח…"
             : form.submitLabel}
       </button>
-      <p className="form__note">
-        הפרטים נשלחים ישירות לתיבת הדואר של הסוכנות ואינם נשמרים באתר.
-      </p>
+      {mode === "customer" && (
+        <p className="form__note">
+          הפרטים נשלחים לסוכנות ונשמרים במערכת הסוכנות לצורך הטיפול בפנייה.
+        </p>
+      )}
     </form>
   );
+}
+
+/**
+ * A prefill arrives as strings (a URL, a token, a stored answer). A checkbox
+ * group's state is a list, and its stored answer is the options joined with
+ * ", " (which is why no option label may contain that sequence), so split it
+ * back into the options that actually exist.
+ */
+/** The pad's PNG data URL as a Blob the form can post as a file. */
+function dataUrlToBlob(dataUrl: string): Blob | null {
+  const m = /^data:(image\/png);base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
+  if (!m) return null;
+  try {
+    const bin = atob(m[2]);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: m[1] });
+  } catch {
+    return null;
+  }
+}
+
+function normalizePrefill(fields: FormField[], prefill: Record<string, string>): Values {
+  const out: Values = {};
+  const byName = new Map(fields.map((f) => [f.name, f] as const));
+  for (const [name, value] of Object.entries(prefill)) {
+    const field = byName.get(name);
+    if (field?.type === "checkbox" && field.options) {
+      const opts = new Set<string>(field.options);
+      out[name] = value.split(", ").map((v) => v.trim()).filter((v) => opts.has(v));
+    } else {
+      out[name] = value;
+    }
+  }
+  return out;
 }
 
 function Field({
@@ -382,6 +465,20 @@ function Field({
             <p key={i}>{para}</p>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (field.type === "signature") {
+    return (
+      <div className={`${cell} fform__cell--full`} data-field={field.name}>
+        <label htmlFor={id}>
+          {field.label}
+          {field.required && <span className="fform__req" aria-hidden="true">*</span>}
+        </label>
+        <SignaturePad id={id} value={text} onChange={(v) => onValue(field.name, v)} invalid={Boolean(error)} describedBy={describedBy} />
+        {help}
+        {err}
       </div>
     );
   }

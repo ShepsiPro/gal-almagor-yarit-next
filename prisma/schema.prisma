@@ -1,0 +1,111 @@
+// This site's own database: the system of record for every form submission.
+//
+// Mslahtk is the CRM. Every submission is ALSO filed there as a lead, which is
+// what gives the agency the customer card, the pipeline, WhatsApp, the owner
+// dashboard and the phone app. But the document itself, the answers and the
+// identity papers attached to them, is this site's own data and lives here:
+// the rows in Postgres, the bytes in the R2 bucket. The lead carries the
+// submission id and this row carries the lead id, so both directions resolve.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// One filled form.
+model Submission {
+  id        String @id @default(cuid())
+  /// The form definition it was filled against (lib/forms.ts slug), or
+  /// "contact" for the homepage form.
+  formSlug  String
+  /// The form's title at the time, so a renamed form still reads right.
+  formTitle String
+  name      String?
+  phone     String?
+  email     String?
+  /// Field name -> answer. lib/forms.ts is the map back to labels, sections
+  /// and visibility rules; stored by NAME so a label edit never orphans data.
+  answers   Json    @default("{}")
+  /// page, referrer, ip, userAgent, and anything else worth knowing about
+  /// how it arrived.
+  source    Json?
+
+  /// A re-send: the submission this one updates (the agency locked some
+  /// fields and sent the form again).
+  resentFromId String?
+  resentFrom   Submission?  @relation("Resend", fields: [resentFromId], references: [id], onDelete: SetNull)
+  resends      Submission[] @relation("Resend")
+
+  /// The case this belongs to. A multi-form case (lib/home-case.ts) is opened
+  /// by the customer's request; the agency's offer and the customer's signed
+  /// answer are filed as children of that request, so one id finds the file.
+  parentId String?
+  parent   Submission?  @relation("Case", fields: [parentId], references: [id], onDelete: SetNull)
+  children Submission[] @relation("Case")
+
+  /// The Mslahtk lead this became. Set on submit, or afterwards by the
+  /// webhook or the sweep when the create timed out but Mslahtk stored it
+  /// anyway (the lead carries `_submissionId`).
+  mslahtkLeadId   String?   @unique
+  /// The lead's pipeline status as last heard from Mslahtk.
+  mslahtkStatus   String?
+  mslahtkError    String?
+  mslahtkSyncedAt DateTime?
+
+  emailSentAt DateTime?
+  emailError  String?
+
+  files     SubmissionFile[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([createdAt])
+  @@index([formSlug, createdAt])
+  @@index([phone])
+  @@index([parentId])
+}
+
+/// A document attached to a submission. The bytes live in storage under
+/// `storageKey`; a URL is never stored, it is minted for one signed-in admin
+/// at the moment it is needed (see app/admin/files).
+model SubmissionFile {
+  id           String     @id @default(cuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  /// The form field it was attached to; the label comes from lib/forms.ts.
+  fieldName    String
+  /// Where the bytes live: "r2" (the standard) or "disk" (local development).
+  storage      String
+  /// Object key (r2) or relative path (disk).
+  storageKey   String     @unique
+  filename     String
+  mimeType     String
+  size         Int
+  createdAt    DateTime   @default(now())
+
+  @@index([submissionId])
+}
+
+/// Every Mslahtk webhook delivery applied, by delivery id, so a redelivery is
+/// answered 200 without being applied twice.
+model WebhookDelivery {
+  id         String   @id
+  event      String
+  outcome    String
+  receivedAt DateTime @default(now())
+}
+
+/// One row per status sweep against Mslahtk, so "when did we last check" is
+/// answerable and the sweep can throttle itself.
+model SyncRun {
+  id         String    @id @default(cuid())
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  updated    Int       @default(0)
+  linked     Int       @default(0)
+  error      String?
+}

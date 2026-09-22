@@ -3,11 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { SIMULATOR_ENABLED } from "@/lib/site";
 
 const NAV_LINKS = [
   { href: "/about", label: "אודות" },
   { href: "/#categories", label: "תחומי ביטוח" },
-  { href: "/#quote", label: "הצעת מחיר" },
+  ...(SIMULATOR_ENABLED ? [{ href: "/#quote", label: "הצעת מחיר" }] : []),
   { href: "/#why", label: "למה אנחנו" },
   { href: "/#partners", label: "חברות הביטוח" },
   { href: "/#contact", label: "צור קשר" },

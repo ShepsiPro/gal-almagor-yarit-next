@@ -10,6 +10,7 @@
 // they like while looking exactly like one the agency prepared.
 
 import { createHmac, timingSafeEqual } from "crypto";
+import { connectionSecret } from "./admin-auth";
 
 const TTL_MS = 14 * 24 * 60 * 60_000; // a fortnight to act on a sent form
 
@@ -19,17 +20,22 @@ export type Prefill = {
   values: Record<string, string>;
   /** Field names the customer cannot change. Must be a subset of `values`. */
   locked: string[];
-  /** Lead this was built from, so the new submission can be traced back. */
+  /** Submission this was built from, so the new one can be traced back. */
   fromLeadId?: string;
+  /**
+   * The case (a request submission's id) the filled form belongs to. A form 3
+   * sent from a case files its answer as that case's child rather than as a
+   * new, orphaned submission.
+   */
+  caseId?: string;
 };
 
+const RECORD_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
 function secret(): string {
-  const s = process.env.ADMIN_LINK_SECRET;
-  if (s) return s;
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("ADMIN_LINK_SECRET must be set in production");
-  }
-  return "yarit-admin-dev-secret";
+  const s = connectionSecret();
+  if (!s) throw new Error("ADMIN_LINK_SECRET must be set in production");
+  return s;
 }
 
 export function mintPrefillToken(p: Prefill): string {
@@ -55,7 +61,8 @@ export function verifyPrefillToken(token: string | undefined | null): Prefill | 
     const locked = (Array.isArray(obj.locked) ? obj.locked : []).filter(
       (n: unknown) => typeof n === "string" && n in values,
     );
-    return { slug: String(obj.slug), values, locked, fromLeadId: obj.fromLeadId ? String(obj.fromLeadId) : undefined };
+    const caseId = typeof obj.caseId === "string" && RECORD_ID.test(obj.caseId) ? obj.caseId : undefined;
+    return { slug: String(obj.slug), values, locked, fromLeadId: obj.fromLeadId ? String(obj.fromLeadId) : undefined, caseId };
   } catch {
     return null;
   }

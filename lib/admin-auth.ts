@@ -10,6 +10,7 @@
 // (which may sit in browser history or a chat log) stops being useful quickly.
 //
 //   ADMIN_LINK_SECRET   shared with Mslahtk, mints/verifies the entry link
+//                       (alias MSLAHTK_CONNECTION_SECRET, the Connect app name)
 //   ADMIN_SESSION_TTL_H optional, default 8
 
 import { createHmac, timingSafeEqual } from "crypto";
@@ -36,15 +37,23 @@ export type AdminIdentity = {
 /** A Mslahtk record id: opaque, url-safe, short. Anything else is not put in a path. */
 const RECORD_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
-function secret(): string {
-  // ADMIN_LINK_SECRET is this site's own name for it; MSLAHTK_CONNECTION_SECRET
-  // is the name Mslahtk's "Connect app" writes, so either works.
+/**
+ * The secret shared with Mslahtk. It signs the launch tokens Mslahtk mints
+ * (the way in), the session cookie, the re-send links, and Mslahtk's webhook
+ * deliveries. ADMIN_LINK_SECRET is this site's own name for it;
+ * MSLAHTK_CONNECTION_SECRET is the name Mslahtk's "Connect app" writes, so
+ * either works. Null when production has neither.
+ */
+export function connectionSecret(): string | null {
   const s = process.env.ADMIN_LINK_SECRET || process.env.MSLAHTK_CONNECTION_SECRET;
   if (s) return s;
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("ADMIN_LINK_SECRET must be set in production");
-  }
-  return "yarit-admin-dev-secret";
+  return process.env.NODE_ENV === "production" ? null : "yarit-admin-dev-secret";
+}
+
+function secret(): string {
+  const s = connectionSecret();
+  if (!s) throw new Error("ADMIN_LINK_SECRET must be set in production");
+  return s;
 }
 
 function sign(payload: string): string {

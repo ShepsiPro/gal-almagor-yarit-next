@@ -1,173 +1,154 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { formatBytes, getForm, isFieldVisible, type FormDef } from "@/lib/forms";
-import { getStoredLead, type StoredFile } from "@/lib/mslahtk";
+import { notFound, redirect } from "next/navigation";
+import type { SubmissionFile } from "@prisma/client";
+import AnsweredForm from "@/components/AnsweredForm";
+import CasePanel from "@/components/CasePanel";
+import StatusChip from "@/components/StatusChip";
+import { CONTACT_FIELDS, CONTACT_FORM_SLUG } from "@/lib/contact-form";
+import { allFields, formAudience, formatBytes, getForm } from "@/lib/forms";
+import { whenHe } from "@/lib/format";
+import { loadCase, parentCaseId } from "@/lib/home-case";
+import { dashboardLeadUrl } from "@/lib/mslahtk";
+import { answersOf, getSubmission } from "@/lib/submissions";
 import { currentAdmin } from "../session";
 
 export const metadata = { robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
 
-function whenHe(iso: string): string {
-  return new Date(iso).toLocaleString("he-IL", {
-    timeZone: "Asia/Jerusalem",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-/**
- * Render the answers through the form definition.
- *
- * This is the whole reason the back-office lives on this site rather than in
- * Mslahtk: `fields` there is fifty keys like `youngest_birth` with no order and
- * no meaning. The definition holds the Hebrew label, the section it belongs to
- * and the conditions under which it was ever shown — so a field the customer
- * never saw is not rendered as an ominous blank, and the document reads back in
- * the order it was filled.
- */
-function Rendered({ form, fields }: { form: FormDef; fields: Record<string, string> }) {
+/** Answers with no form definition: the contact form's labels, or the raw keys. */
+function RawAnswers({ slug, fields }: { slug: string; fields: Record<string, string> }) {
+  const labels = new Map(slug === CONTACT_FORM_SLUG ? CONTACT_FIELDS.map((f) => [f.key, f.label] as const) : []);
+  const entries = Object.entries(fields).filter(([k]) => !k.startsWith("_"));
   return (
-    <>
-      {form.sections.map((section, si) => {
-        const rows = section.fields
-          .filter((f) => f.type !== "statement")
-          .filter((f) => isFieldVisible(form, f, fields))
-          .map((f) => ({ field: f, value: (fields[f.name] ?? "").trim() }))
-          .filter((r) => r.value !== "");
-
-        if (!rows.length) return null;
-        return (
-          <section className="adm__section" key={si}>
-            {section.title && <h2 className="adm__sectiontitle">{section.title}</h2>}
-            <dl className="adm__dl">
-              {rows.map(({ field, value }) => (
-                <div className="adm__dlrow" key={field.name}>
-                  <dt>{field.label}</dt>
-                  <dd className={field.type === "consent" ? "adm__yes" : undefined}>
-                    {field.type === "consent" ? "אושר ✓" : value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        );
-      })}
-    </>
+    <section className="adm__section">
+      <h2 className="adm__sectiontitle">{slug === CONTACT_FORM_SLUG ? "פרטי הפנייה" : `תשובות (טופס לא מזוהה: ${slug})`}</h2>
+      <dl className="adm__dl">
+        {entries.map(([k, v]) => (
+          <div className="adm__dlrow" key={k}>
+            <dt dir={labels.has(k) ? undefined : "ltr"}>{labels.get(k) ?? k}</dt>
+            <dd>{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }
 
-function FileCard({ file }: { file: StoredFile }) {
-  const isImage = (file.mimeType || "").startsWith("image/");
+function FileCard({ file }: { file: SubmissionFile }) {
+  // The only door to a document: a session-checked route that answers with a
+  // five-minute signed URL. Nothing here knows a bucket or a key.
+  const href = `/admin/files/${file.id}`;
+  const isImage = file.mimeType.startsWith("image/");
   return (
-    <a className="adm__file" href={file.url} target="_blank" rel="noopener noreferrer">
+    <a className="adm__file" href={href} target="_blank" rel="noopener noreferrer">
       {isImage ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img className="adm__filethumb" src={file.url} alt={file.filename || "קובץ"} loading="lazy" />
+        <img className="adm__filethumb" src={href} alt={file.filename} loading="lazy" />
       ) : (
         <span className="adm__filethumb adm__filethumb--doc" aria-hidden="true">
           PDF
         </span>
       )}
       <span className="adm__filemeta">
-        <span className="adm__filename">{file.filename || "ללא שם"}</span>
-        {file.size != null && <span className="adm__muted">{formatBytes(file.size)}</span>}
+        <span className="adm__filename">{file.filename}</span>
+        <span className="adm__muted">{formatBytes(file.size)}</span>
       </span>
     </a>
   );
 }
 
-export default async function LeadDetail({ params }: { params: Promise<{ leadId: string }> }) {
+export default async function SubmissionDetail({ params }: { params: Promise<{ leadId: string }> }) {
   const admin = await currentAdmin();
   if (!admin) notFound();
 
   const { leadId } = await params;
+  const sub = await getSubmission(leadId);
+  if (!sub) notFound();
+  // Reached by the Mslahtk lead id (a launch token, an older link): settle on
+  // the site's own id so every later link from this page is canonical.
+  if (sub.id !== leadId) redirect(`/admin/${sub.id}`);
 
-  let detail: Awaited<ReturnType<typeof getStoredLead>>;
-  try {
-    detail = await getStoredLead(leadId);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (/not found/i.test(msg)) notFound();
-    return (
-      <main className="adm__main">
-        <div className="adm__card adm__card--warn">
-          <h1 className="adm__title">שגיאה בקריאת הטופס</h1>
-          <p className="adm__muted" dir="ltr">
-            {msg}
-          </p>
-        </div>
-      </main>
-    );
-  }
-
-  const { lead, customer, files } = detail;
-  const slug = (lead.category || "").replace(/^form:/, "");
-  const form = getForm(slug);
+  const fields = answersOf(sub);
+  const form = getForm(sub.formSlug);
+  // A request opens a case; an offer or an answer belongs to one.
+  const file = await loadCase(sub.id);
+  const caseId = file ? null : await parentCaseId(sub);
+  const resendable = Boolean(form && formAudience(form) === "customer" && !form.requiresToken);
+  // A drawn signature is shown inside the form, beside its label, not as a document.
+  const signatureFields = new Set(form ? allFields(form).filter((f) => f.type === "signature").map((f) => f.name) : []);
+  const documents = sub.files.filter((f) => !signatureFields.has(f.fieldName));
 
   return (
     <main className="adm__main">
-      <Link className="adm__back" href="/admin">
-        ← לכל הטפסים
+      <Link className="adm__back" href={caseId ? `/admin/${caseId}` : "/admin"}>
+        {caseId ? "← חזרה לתיק" : "← לכל הטפסים"}
       </Link>
 
       <div className="adm__head">
         <div>
-          <h1 className="adm__title">{lead.name || customer?.name || "ללא שם"}</h1>
+          <h1 className="adm__title">{sub.name || "ללא שם"}</h1>
           <p className="adm__muted">
-            {form?.title || lead.ctaLabel || slug} · {whenHe(lead.createdAt)}
+            {form?.title || sub.formTitle} · {whenHe(sub.createdAt)}
+            {sub.resentFromId && (
+              <>
+                {" · "}
+                <Link className="adm__link" href={`/admin/${sub.resentFromId}`}>
+                  עדכון לפנייה קודמת
+                </Link>
+              </>
+            )}
+            {caseId && (
+              <>
+                {" · "}
+                <Link className="adm__link" href={`/admin/${caseId}`}>
+                  חלק מתיק ביטוח דירה
+                </Link>
+              </>
+            )}
           </p>
         </div>
         <div className="adm__actions">
-          <Link className="adm__btn adm__btn--primary" href={`/admin/${lead.id}/resend`}>
-            שליחה מחדש לעדכון
-          </Link>
+          {resendable && (
+            <Link className="adm__btn adm__btn--primary" href={`/admin/${sub.id}/resend`}>
+              שליחה מחדש לעדכון
+            </Link>
+          )}
+          {sub.mslahtkLeadId && (
+            <a className="adm__btn" href={dashboardLeadUrl(sub.mslahtkLeadId)} target="_blank" rel="noopener noreferrer">
+              פתיחה במסלחתק
+            </a>
+          )}
         </div>
       </div>
 
       <div className="adm__contact">
-        {lead.phone && (
-          <a className="adm__chip" href={`tel:${lead.phone}`} dir="ltr">
-            {lead.phone}
+        {sub.phone && (
+          <a className="adm__chip" href={`tel:${sub.phone}`} dir="ltr">
+            {sub.phone}
           </a>
         )}
-        {lead.email && (
-          <a className="adm__chip" href={`mailto:${lead.email}`} dir="ltr">
-            {lead.email}
+        {sub.email && (
+          <a className="adm__chip" href={`mailto:${sub.email}`} dir="ltr">
+            {sub.email}
           </a>
         )}
+        <StatusChip leadId={sub.mslahtkLeadId} status={sub.mslahtkStatus} />
       </div>
 
-      {files.length > 0 && (
+      {file && <CasePanel file={file} />}
+
+      {documents.length > 0 && (
         <section className="adm__section">
-          <h2 className="adm__sectiontitle">מסמכים ({files.length})</h2>
+          <h2 className="adm__sectiontitle">מסמכים ({documents.length})</h2>
           <div className="adm__files">
-            {files.map((f) => (
+            {documents.map((f) => (
               <FileCard file={f} key={f.id} />
             ))}
           </div>
         </section>
       )}
 
-      {form ? (
-        <Rendered form={form} fields={lead.fields} />
-      ) : (
-        // A form that has since been renamed or removed: show the raw answers
-        // rather than nothing, because the submission is still a record.
-        <section className="adm__section">
-          <h2 className="adm__sectiontitle">תשובות (טופס לא מזוהה: {slug || "—"})</h2>
-          <dl className="adm__dl">
-            {Object.entries(lead.fields).map(([k, v]) => (
-              <div className="adm__dlrow" key={k}>
-                <dt dir="ltr">{k}</dt>
-                <dd>{String(v)}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      )}
+      {form ? <AnsweredForm form={form} fields={fields} files={sub.files} /> : <RawAnswers slug={sub.formSlug} fields={fields} />}
     </main>
   );
 }
