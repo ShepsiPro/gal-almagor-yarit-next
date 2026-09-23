@@ -62,6 +62,29 @@ export function describeMslahtk() {
   return { configured: mslahtkConfigured(), api: c.api, projectId: c.projectId || null, hasServiceToken: Boolean(c.serviceToken) };
 }
 
+/** This business in the Mslahtk dashboard (its own workspace, not a lead). */
+export function dashboardProjectUrl(): string {
+  const c = mslahtkConfig();
+  return c.projectId ? `${c.dashboardUrl}/dashboard?p=${encodeURIComponent(c.projectId)}` : `${c.dashboardUrl}/dashboard`;
+}
+
+/**
+ * The staff entry's way in: Mslahtk's /go/app page mints this business's
+ * launch token for whoever is logged in to Mslahtk (logging in first if
+ * needed) and sends the browser straight back to /admin/entry, signed in.
+ * `app` picks the launch button that points at THIS site, so a staging copy
+ * of the site is refused rather than sent to the live one. Null when the
+ * connection is not configured.
+ */
+export function enterThroughMslahtkUrl(siteOrigin: string, to?: string): string | null {
+  const c = mslahtkConfig();
+  if (!c.projectId) return null;
+  const u = new URL(`${c.dashboardUrl}/go/app/${encodeURIComponent(c.projectId)}`);
+  u.searchParams.set("app", siteOrigin);
+  if (to && to !== "/admin") u.searchParams.set("to", to);
+  return u.toString();
+}
+
 /** Deep link into the Mslahtk dashboard, straight onto a lead. */
 export function dashboardLeadUrl(leadId: string): string {
   return `${mslahtkConfig().dashboardUrl}/dashboard?lead=${encodeURIComponent(leadId)}`;

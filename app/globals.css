@@ -995,6 +995,8 @@ a.crow__value[dir="ltr"] { text-align: right; }
 }
 .footer__legal { color: rgba(255,255,255,0.62); line-height: 1.6; }
 .footer__legal strong { color: rgba(255,255,255,0.9); font-weight: 700; }
+.footer__staff { color: rgba(255,255,255,0.62); text-decoration: none; }
+.footer__staff:hover { color: #fff; text-decoration: underline; }
 .footer__disclaimer {
   margin: 0;
   font-size: 12.5px;
@@ -2117,6 +2119,14 @@ input.fform__file-input {
   position: sticky; top: 0; z-index: 10;
 }
 .adm__brand { font-weight: 700; color: #304054; text-decoration: none; }
+.adm__barstart { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; min-width: 0; }
+.adm__nav { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+.adm__navlink { font-size: 14px; color: #475467; text-decoration: none; padding: 6px 10px; border-radius: 8px; }
+.adm__navlink:hover { background: #f2f4f7; color: #101828; }
+@media (max-width: 640px) {
+  .adm__bar { flex-wrap: wrap; padding: 10px 14px; }
+  .adm__who { display: none; }
+}
 .adm__who { font-size: 13px; color: #667085; }
 .adm__main { max-width: 960px; margin: 0 auto; padding: 24px 20px 80px; }
 .adm__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }

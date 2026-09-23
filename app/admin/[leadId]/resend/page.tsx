@@ -4,16 +4,15 @@ import ResendBuilder, { type ResendField } from "@/components/ResendBuilder";
 import { buildResendLink } from "../../actions";
 import { getForm, isFieldVisible } from "@/lib/forms";
 import { answersOf, getSubmission } from "@/lib/submissions";
-import { currentAdmin } from "../../session";
+import { requireAdmin } from "../../session";
 
 export const metadata = { robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
 
 export default async function ResendPage({ params }: { params: Promise<{ leadId: string }> }) {
-  const admin = await currentAdmin();
-  if (!admin) notFound();
-
   const { leadId } = await params;
+  const admin = await requireAdmin(`/admin/${leadId}/resend`);
+
   const sub = await getSubmission(leadId);
   if (!sub) notFound();
   if (sub.id !== leadId) redirect(`/admin/${sub.id}/resend`);
