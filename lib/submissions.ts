@@ -86,11 +86,15 @@ export async function storeFiles(submissionId: string, files: IncomingFile[]): P
   return out;
 }
 
-export async function listSubmissions(opts: { limit?: number; offset?: number } = {}) {
+export async function listSubmissions(opts: { limit?: number; offset?: number; topLevel?: boolean } = {}) {
   const take = Math.min(Math.max(opts.limit ?? 50, 1), 100);
   const skip = Math.max(opts.offset ?? 0, 0);
+  // topLevel: one row per customer case. An offer or an answer lives inside
+  // its request (the case card shows it), not as a row of its own.
+  const where = opts.topLevel ? { parentId: null } : {};
   const [items, total] = await Promise.all([
     db.submission.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       take,
       skip,
@@ -99,7 +103,7 @@ export async function listSubmissions(opts: { limit?: number; offset?: number } 
         children: { select: { formSlug: true, answers: true, createdAt: true }, orderBy: { createdAt: "asc" } },
       },
     }),
-    db.submission.count(),
+    db.submission.count({ where }),
   ]);
   return { items, total, limit: take, offset: skip };
 }

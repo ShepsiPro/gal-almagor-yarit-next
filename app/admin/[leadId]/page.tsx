@@ -80,7 +80,7 @@ export default async function SubmissionDetail({ params }: { params: Promise<{ l
   return (
     <main className="adm__main">
       <Link className="adm__back" href={caseId ? `/admin/${caseId}` : "/admin"}>
-        {caseId ? "← חזרה לתיק" : "← לכל הטפסים"}
+        {caseId ? "→ חזרה לתיק" : "→ לכל הפניות"}
       </Link>
 
       <div className="adm__head">
@@ -114,7 +114,7 @@ export default async function SubmissionDetail({ params }: { params: Promise<{ l
           )}
           {sub.mslahtkLeadId && (
             <a className="adm__btn" href={dashboardLeadUrl(sub.mslahtkLeadId)} target="_blank" rel="noopener noreferrer">
-              פתיחה במסלחתק
+              כרטיס הלקוח במסלחתק
             </a>
           )}
         </div>

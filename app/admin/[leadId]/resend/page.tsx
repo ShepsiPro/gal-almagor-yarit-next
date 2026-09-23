@@ -40,7 +40,7 @@ export default async function ResendPage({ params }: { params: Promise<{ leadId:
   return (
     <main className="adm__main">
       <Link className="adm__back" href={`/admin/${sub.id}`}>
-        ← חזרה לטופס
+        → חזרה לפנייה
       </Link>
       <div className="adm__head">
         <div>
