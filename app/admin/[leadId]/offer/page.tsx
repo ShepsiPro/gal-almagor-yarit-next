@@ -6,7 +6,7 @@ import { getForm } from "@/lib/forms";
 import { loadCase, offerPrefill } from "@/lib/home-case";
 import { encodeSnapshot, roundShekel } from "@/lib/home-quote";
 import { answersOf } from "@/lib/submissions";
-import { currentAdmin } from "../../session";
+import { requireAdmin } from "../../session";
 
 export const metadata = { robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -19,10 +19,9 @@ export const dynamic = "force-dynamic";
  * the deductibles. The agent edits, saves; the case moves to "offer prepared".
  */
 export default async function OfferPage({ params }: { params: Promise<{ leadId: string }> }) {
-  const admin = await currentAdmin();
-  if (!admin) notFound();
-
   const { leadId } = await params;
+  const admin = await requireAdmin(`/admin/${leadId}/offer`);
+
   const file = await loadCase(leadId);
   if (!file) notFound();
   const requestForm = getForm(file.request.formSlug);

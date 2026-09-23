@@ -10,7 +10,7 @@ import { whenHe } from "@/lib/format";
 import { loadCase, parentCaseId } from "@/lib/home-case";
 import { dashboardLeadUrl } from "@/lib/mslahtk";
 import { answersOf, getSubmission } from "@/lib/submissions";
-import { currentAdmin } from "../session";
+import { requireAdmin } from "../session";
 
 export const metadata = { robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -58,10 +58,9 @@ function FileCard({ file }: { file: SubmissionFile }) {
 }
 
 export default async function SubmissionDetail({ params }: { params: Promise<{ leadId: string }> }) {
-  const admin = await currentAdmin();
-  if (!admin) notFound();
-
   const { leadId } = await params;
+  const admin = await requireAdmin(`/admin/${leadId}`);
+
   const sub = await getSubmission(leadId);
   if (!sub) notFound();
   // Reached by the Mslahtk lead id (a launch token, an older link): settle on

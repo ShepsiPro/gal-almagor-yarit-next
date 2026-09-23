@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { getForm } from "@/lib/forms";
 import { caseOfChildForm, caseOpenedBy, caseStageOf, stageLabel } from "@/lib/home-case";
 import StatusChip from "@/components/StatusChip";
 import { sweepStatuses } from "@/lib/mslahtk-sync";
 import { listSubmissions } from "@/lib/submissions";
-import { currentAdmin } from "./session";
+import { requireAdmin } from "./session";
 
 export const metadata = { robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -28,10 +27,9 @@ export default async function AdminHome({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const admin = await currentAdmin();
+  await requireAdmin("/admin");
   // 404 rather than a login page: an unauthenticated visitor should not learn
   // that a back-office lives here at all.
-  if (!admin) notFound();
 
   const q = await searchParams;
   const offset = Math.max(Number(Array.isArray(q.offset) ? q.offset[0] : q.offset) || 0, 0);

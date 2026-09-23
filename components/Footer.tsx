@@ -114,6 +114,12 @@ export default function Footer() {
           <a href="https://mslahtk.ai/he/work/almagor-yaarit" target="_blank" rel="noopener">
             Mslahtk
           </a>
+          {" · "}
+          {/* The staff way into the back-office, through Mslahtk. A plain link,
+              not next/link: /admin/login is a redirect hop, never prefetched. */}
+          <a className="footer__staff" href="/admin/login" rel="nofollow">
+            כניסת צוות
+          </a>
         </p>
         <p className="footer__disclaimer">
           האמור באתר הוא מידע כללי בלבד, אינו מהווה ייעוץ, שיווק פנסיוני או המלצה
