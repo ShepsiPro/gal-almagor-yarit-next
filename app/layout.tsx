@@ -17,7 +17,10 @@ const coherenti = localFont({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://almagor-yaarit.com"),
-  alternates: { canonical: "/" },
+  // No canonical here: a canonical in the root layout is inherited by every
+  // page that does not set its own, and it told Google that /about and all
+  // six /insurance/* pages were copies of the home page. Each page declares
+  // its own canonical instead (the home page in app/page.tsx).
   title: "גל אלמגור יערית · סוכנות ביטוח · שלומי",
   description:
     "סוכנות ביטוח עצמאית בשלומי, חברה בקבוצת גל אלמגור. ביטוחי רכב, דירה, עסקים, חיים ובריאות, פרישה ופיננסים, בליווי אישי לכל מהלך התיק.",

@@ -21,6 +21,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const c = INSURANCE_CONTENT[slug];
   if (!c) return {};
   return {
+    alternates: { canonical: `/insurance/${slug}` },
     title: `${c.eyebrow} · גל אלמגור יערית · שלומי`,
     description: c.intro,
     openGraph: {
