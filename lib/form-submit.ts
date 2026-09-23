@@ -44,7 +44,7 @@ import {
 } from "./home-case";
 import { computeHomeQuote, decodeSnapshot, roundShekel } from "./home-quote";
 import { renderEmail, sendMail, type MailAttachment, type Row } from "./mailer";
-import { dashboardLeadUrl, setLeadStage, submitLead, updateLead } from "./mslahtk";
+import { dashboardLeadUrl, notifyOwner, setLeadStage, submitLead, updateLead } from "./mslahtk";
 import { verifyPrefillToken } from "./prefill";
 import { createSubmission, storeFiles, type IncomingFile, type StoreResult } from "./submissions";
 
@@ -413,6 +413,21 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
       console.error("[forms] mslahtk lead failed", { slug, error: lead.error });
       rows.push({ label: "כרטיס לקוח", value: `לא נוצר: ${lead.error}` });
     }
+  }
+
+  // 3b. The customer answered the offer (form 3): the one moment in a case that
+  // arrives from outside while nobody is looking. Tell the owner on the phone,
+  // through Mslahtk; the tap opens this case in the back-office, signed in.
+  // Never blocks the customer's submit: a failure is logged, the row and the
+  // mail below stand either way.
+  if (role === "answer" && parent) {
+    const told = await notifyOwner({
+      title: "הלקוח השיב להצעה",
+      body: `${parent.name || "לקוח"}: ${decisionLabel(decisionOf(answers))}`,
+      to: `/admin/${parent.id}`,
+      leadId: parent.mslahtkLeadId || undefined,
+    });
+    if (!told.ok && !told.skipped) console.error("[forms] owner notify failed", { slug, error: told.error });
   }
 
   // 4. The notification. Only for what a customer sent: the agency does not
