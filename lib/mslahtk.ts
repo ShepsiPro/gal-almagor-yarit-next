@@ -224,6 +224,38 @@ export async function setLeadStage(leadId: string, status: string, via: string):
 }
 
 /**
+ * POST .../notify: tell the business OWNER something, through Mslahtk. It lands
+ * as a bell row and a push on the owner's phone; tapping it opens this site's
+ * back-office signed in, on `to` (a path under /admin) or on the lead's case.
+ * Needs the `owner:notify` scope on the service token. Never reaches a
+ * customer. Mslahtk caps the pace (30 an hour) and collapses repeats.
+ */
+export async function notifyOwner(input: { title: string; body?: string; to?: string; leadId?: string }): Promise<LeadOpResult> {
+  const cfg = mslahtkConfig();
+  if (!mslahtkConfigured()) return { ok: false, error: "Mslahtk is not configured", skipped: true };
+  try {
+    const res = await fetch(`${cfg.api}/service/sites/${encodeURIComponent(cfg.projectId)}/notify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${cfg.serviceToken}` },
+      body: JSON.stringify({
+        title: input.title.slice(0, 80),
+        ...(input.body ? { body: input.body.slice(0, 300) } : {}),
+        ...(input.to ? { to: input.to } : {}),
+        ...(input.leadId ? { leadId: input.leadId } : {}),
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) {
+      const json = (await res.json().catch(() => ({}))) as { message?: string };
+      return { ok: false, error: json.message || `Mslahtk responded ${res.status}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
  * PATCH .../leads/:id: merge `fields` onto the lead (keys [A-Za-z0-9_.-], values
  * up to 2000 chars, 50 per call) and optionally replace its note. Needs the
  * `leads:write` scope on the service token.
