@@ -35,7 +35,7 @@ export default async function OfferPage({ params }: { params: Promise<{ leadId: 
   return (
     <main className="adm__main adm__main--wide">
       <Link className="adm__back" href={`/admin/${file.request.id}`}>
-        ← חזרה לתיק
+        → חזרה לתיק
       </Link>
       <div className="adm__head">
         <div>

@@ -2113,21 +2113,48 @@ input.fform__file-input {
    reads forty rows of, not a page that has to sell anything. */
 .adm { min-height: 100vh; background: #f6f7f9; }
 .adm--center { display: grid; place-items: center; padding: 48px 20px; }
+/* ── Back-office chrome, phone first ─────────────────────────────── */
 .adm__bar {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 12px 20px; background: #fff; border-bottom: 1px solid #e4e7ec;
-  position: sticky; top: 0; z-index: 10;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px;
+  padding: 10px 14px; background: #fff; border-bottom: 1px solid #e4e7ec;
+  position: sticky; top: 0; z-index: 20;
 }
-.adm__brand { font-weight: 700; color: #304054; text-decoration: none; }
-.adm__barstart { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; min-width: 0; }
-.adm__nav { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
-.adm__navlink { font-size: 14px; color: #475467; text-decoration: none; padding: 6px 10px; border-radius: 8px; }
-.adm__navlink:hover { background: #f2f4f7; color: #101828; }
-@media (max-width: 640px) {
-  .adm__bar { flex-wrap: wrap; padding: 10px 14px; }
-  .adm__who { display: none; }
+.adm__brand { display: flex; flex-direction: column; line-height: 1.15; text-decoration: none; margin-inline-end: auto; min-width: 0; }
+.adm__brandname { font-weight: 800; color: #1d2939; font-size: 16px; }
+.adm__brandsub { font-size: 12px; color: #667085; }
+.adm__tabs { order: 3; flex: 1 1 100%; display: flex; gap: 6px; }
+.adm__tab {
+  flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 40px; padding: 8px 12px; border-radius: 10px; background: #f2f4f7;
+  font-size: 14px; font-weight: 600; color: #475467; text-decoration: none; white-space: nowrap;
 }
-.adm__who { font-size: 13px; color: #667085; }
+.adm__tab:hover { color: #101828; }
+.adm__tab.is-active { background: #304054; color: #fff; }
+.adm__baractions { display: flex; align-items: center; gap: 2px; }
+.adm__logout { margin: 0; display: contents; }
+.adm__action {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-width: 40px; min-height: 40px; padding: 6px 10px; border-radius: 10px;
+  background: none; border: 0; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600;
+  color: #475467; text-decoration: none;
+}
+.adm__action:hover { background: #f2f4f7; color: #101828; }
+.adm__action span { display: none; }
+.adm__action--mslahtk { color: #0077a0; border: 1px solid #b9e6f5; background: #f0fafd; }
+/* The way back to Mslahtk keeps its words even on a phone; home and sign-out are icons there. */
+.adm__action--mslahtk span { display: inline; }
+@media (min-width: 900px) {
+  .adm__bar { flex-wrap: nowrap; gap: 20px; padding: 10px 24px; }
+  .adm__brand { margin-inline-end: 8px; }
+  .adm__tabs { order: 0; flex: 0 1 auto; }
+  .adm__tab { flex: 0 0 auto; min-height: 38px; background: none; }
+  .adm__tab:hover { background: #f2f4f7; }
+  .adm__tab.is-active { background: #304054; color: #fff; }
+  .adm__baractions { margin-inline-start: auto; gap: 4px; }
+  .adm__action span { display: inline; }
+  .adm__action--mslahtk:hover { background: #e0f4fb; color: #005f80; }
+}
+
 .adm__main { max-width: 960px; margin: 0 auto; padding: 24px 20px 80px; }
 .adm__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
 .adm__title { font-size: 22px; font-weight: 700; color: #101828; margin: 0 0 4px; }
@@ -2465,3 +2492,55 @@ input.fform__file-input {
   background: #fff;
   padding: 6px;
 }
+
+/* ── Back-office list: cards on a phone, aligned rows on a wide screen ── */
+.adm__main { padding: 18px 14px 80px; }
+.adm__main--wide { max-width: 1200px; }
+.adm__head { align-items: flex-end; }
+.adm__head > div { min-width: 0; }
+.adm__head .adm__muted { margin-top: 2px; }
+.adm__btn--icon { display: inline-flex; align-items: center; gap: 8px; }
+@media (max-width: 599px) {
+  .adm__head .adm__actions { width: 100%; }
+  .adm__head .adm__btn { flex: 1 1 100%; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; }
+}
+.adm__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.adm__rowlink {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "who status" "form form" "meta go";
+  gap: 8px 12px; padding: 14px 16px; background: #fff; border: 1px solid #e4e7ec; border-radius: 14px;
+  color: inherit; text-decoration: none; transition: border-color .15s, background .15s;
+}
+.adm__rowlink:hover { border-color: #c9d1dc; }
+.adm__rowlink:focus-visible { outline: 3px solid #b9e6f5; outline-offset: 2px; }
+.adm__cell { min-width: 0; }
+.adm__cell--who { grid-area: who; display: flex; flex-direction: column; gap: 2px; }
+.adm__name { font-weight: 700; font-size: 16px; color: #1849a9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm__phone { font-size: 13px; color: #667085; text-align: end; direction: ltr; unicode-bidi: isolate; align-self: flex-start; }
+.adm__cell--status { grid-area: status; align-self: start; }
+.adm__cell--form { grid-area: form; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 14px; color: #344054; }
+.adm__cell--meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.adm__meta { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: #667085; white-space: nowrap; }
+.adm__cell--go { grid-area: go; align-self: center; color: #98a2b3; display: flex; }
+.adm__listhead { display: none; }
+@media (min-width: 900px) {
+  .adm__main { padding: 28px 24px 80px; }
+  .adm__listhead, .adm__rowlink {
+    grid-template-columns: minmax(170px, 1.1fr) minmax(240px, 2fr) 170px 170px 20px;
+    grid-template-areas: "who form status meta go";
+  }
+  .adm__listhead {
+    display: grid; gap: 12px; padding: 0 18px 8px; font-size: 12px; font-weight: 600; color: #667085;
+  }
+  .adm__list { gap: 0; background: #fff; border: 1px solid #e4e7ec; border-radius: 12px; overflow: hidden; }
+  .adm__row + .adm__row { border-top: 1px solid #f2f4f7; }
+  .adm__rowlink { align-items: center; border: 0; border-radius: 0; padding: 12px 18px; gap: 12px; }
+  .adm__rowlink:hover { background: #f9fafb; }
+  .adm__cell--status { align-self: center; }
+}
+.adm__empty { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 40px 20px; color: #98a2b3; }
+.adm__empty-title { margin: 4px 0 0; font-size: 16px; font-weight: 700; color: #344054; }
+.adm__empty .adm__btn { margin-top: 10px; }
+.adm__send { padding: 18px 16px; }
+.adm__send .flinks { margin-top: 0; }
+@media (min-width: 900px) { .adm__send { padding: 24px 28px; } }

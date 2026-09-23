@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AdminNav from "@/components/AdminNav";
 import { dashboardProjectUrl } from "@/lib/mslahtk";
 import { currentAdmin } from "./session";
 
@@ -16,32 +17,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="adm">
       <header className="adm__bar">
-        <div className="adm__barstart">
-          <Link className="adm__brand" href="/admin">
-            ניהול טפסים
-          </Link>
-          {admin && (
-            <nav className="adm__nav" aria-label="ניווט בניהול">
-              <Link className="adm__navlink" href="/admin">
-                טפסים שהתקבלו
-              </Link>
-              <Link className="adm__navlink" href="/forms">
-                טפסים לשליחה ללקוח
-              </Link>
-              <a className="adm__navlink" href={dashboardProjectUrl()} target="_blank" rel="noopener">
-                פתיחה במסלחתק
-              </a>
-              <Link className="adm__navlink" href="/">
-                לאתר
-              </Link>
-            </nav>
-          )}
-        </div>
-        {admin && (
-          <span className="adm__who" title={admin.sub}>
-            {admin.email || admin.sub}
-          </span>
-        )}
+        <Link className="adm__brand" href="/admin">
+          <span className="adm__brandname">ניהול טפסים</span>
+          <span className="adm__brandsub">יערית · גל אלמגור</span>
+        </Link>
+        {admin && <AdminNav mslahtkUrl={dashboardProjectUrl()} who={admin.email || admin.sub} />}
       </header>
       {children}
     </div>

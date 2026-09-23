@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CASES, FORMS, formAudience, identityField, publicForms } from "@/lib/forms";
 import { SITE } from "@/lib/site";
 
@@ -14,7 +14,10 @@ export default function FormLinks() {
   const [phone, setPhone] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
 
-  const origin = typeof window !== "undefined" ? window.location.origin : SITE.url;
+  // The site's own address for the first render (server and browser agree, so
+  // hydration matches), then the host this page is really open on.
+  const [origin, setOrigin] = useState<string>(SITE.url);
+  useEffect(() => setOrigin(window.location.origin), []);
   const forms = publicForms();
   // Forms that only exist inside a case: named here so nobody looks for them.
   const caseOnly = FORMS.filter((f) => formAudience(f) === "agency" || f.requiresToken);
