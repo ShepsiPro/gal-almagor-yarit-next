@@ -7,6 +7,7 @@ import Contact from "@/components/Contact";
 import { SITE, TEL_HREF, FOOTER_INSURANCE } from "@/lib/site";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/about" },
   title: "אודות · גל אלמגור יערית · שלומי",
   description:
     "גל אלמגור יערית — סוכנות הביטוח של שלומי והגליל המערבי, חברה בקבוצת גל אלמגור. ליווי אישי לתיק הביטוח של משפחות ועסקים.",
