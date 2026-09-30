@@ -463,10 +463,26 @@ function Field({
   if (field.type === "statement") {
     return (
       <div className="fform__cell fform__cell--full" data-field={field.name}>
-        <div className="fform__statement">
-          {(field.body ?? "").split("\n\n").map((para, i) => (
-            <p key={i}>{para}</p>
-          ))}
+        <div className={`fform__statement${field.tone ? ` fform__statement--${field.tone}` : ""}`}>
+          {field.label && <h3 className="fform__statement-title">{field.label}</h3>}
+          {(field.body ?? "")
+            .split("\n\n")
+            .filter(Boolean)
+            .map((para, i) => (
+              <p key={i}>{para}</p>
+            ))}
+          {field.items && (
+            <ul className="fform__statement-list">
+              {field.items.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          )}
+          {field.action && (
+            <a className="map-btn map-btn--primary fform__statement-action" href={field.action.href} target="_blank" rel="noopener noreferrer">
+              {field.action.label}
+            </a>
+          )}
         </div>
       </div>
     );

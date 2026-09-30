@@ -8,6 +8,7 @@
 // To add a form, append a FormDef to FORMS — no other file needs to change.
 
 import { isoToDisplay } from "./dates";
+import { WA_HREF } from "./site";
 
 export type FieldType =
   | "text"
@@ -66,8 +67,14 @@ export type FormField = {
   /** number: bounds, validated on both sides. */
   min?: number;
   max?: number;
-  /** statement: the text to render. */
+  /** statement: the text to render. `label`, when set, is shown above it as the block's heading. */
   body?: string;
+  /** statement: bullet points under the text, a checklist the customer reads. */
+  items?: readonly string[];
+  /** statement: a button under the text, for a link the customer taps (their chat with the agency). */
+  action?: { label: string; href: string };
+  /** statement: "warning" is an amber notice for something the customer must act on; unset is the plain block. */
+  tone?: "warning";
   /** Conditional visibility — see ShowWhen. */
   showWhen?: ShowWhen;
   /**
@@ -539,63 +546,171 @@ export const FORMS: readonly FormDef[] = [
     ],
   },
 
+  // ── הודעה על תאונת דרכים ──────────────────────────────────────────────────
+  //
+  // The agency's own accident notice (its draft of 2026-09-30), in place of the
+  // general "דיווח על אירוע ביטוחי" claim form. The slug stays `claim`, so links
+  // already handed out, and leads already filed under `form:claim`, keep working.
+  //
+  // Photos, documents and a voice recording go to the agency over WhatsApp (a
+  // form cannot carry a voice message), so there are no upload fields here.
+  //
+  // Optional because the owner asked for it: every field of section 7 (the car
+  // and the garage) and the third party's name. The third party's vehicle number
+  // stays required, as in the draft.
   {
     slug: "claim",
-    eyebrow: "טופס תביעה",
-    title: "דיווח על אירוע ביטוחי",
-    intro:
-      "מלאו את פרטי האירוע וצרפו את התיעוד שברשותכם. ככל שהדיווח מפורט ומגובה יותר — כך הטיפול מול חברת הביטוח מהיר יותר.",
-    submitLabel: "שליחת הדיווח",
-    successTitle: "הדיווח נשלח",
+    eyebrow: "הודעה על תאונה",
+    title: "הודעה על תאונת דרכים",
+    intro: "נא למלא את הפרטים בצורה מלאה ומדויקת ככל האפשר.",
+    submitLabel: "שליחת הודעה על תאונה",
+    successTitle: "ההודעה על התאונה נשלחה",
     successBody:
-      "הדיווח התקבל אצלנו. נבדוק את הפרטים מול חברת הביטוח ונעדכן אתכם בהמשך הטיפול.",
+      "ההודעה התקבלה אצלנו. נבדוק את הפרטים ונעדכן אתכם בהמשך הטיפול. את התמונות, המסמכים וההקלטה הקולית אפשר לשלוח לנו בווטסאפ.",
     sections: [
       {
-        title: "פרטי המבוטח",
+        title: "פרטים כלליים על התאונה",
         fields: [
-          { name: "fullName", label: "שם מלא", type: "text", required: true, half: true, identity: "name", prefillable: true },
-          { name: "idNumber", label: "תעודת זהות", type: "id", required: true, half: true },
-          { name: "phone", label: "טלפון נייד", type: "tel", required: true, placeholder: "050-0000000", half: true, prefillable: true },
-          { name: "email", label: "דוא״ל", type: "email", placeholder: "you@example.com", half: true, prefillable: true },
+          { name: "fullName", label: "שם המבוטח", type: "text", required: true, half: true, identity: "name", prefillable: true },
+          { name: "idNumber", label: "תעודת זהות המבוטח", type: "id", required: true, half: true },
+          { name: "phone", label: "מספר טלפון", type: "tel", required: true, half: true, prefillable: true },
+          { name: "vehicleNumber", label: "מספר הרכב המבוטח", type: "text", required: true, half: true },
+          { name: "accidentDate", label: "תאריך התאונה", type: "date", required: true, half: true },
+          { name: "accidentTime", label: "שעת התאונה", type: "time", required: true, half: true },
+          { name: "accidentPlace", label: "מקום התאונה", type: "text", required: true },
+          { name: "police", label: "האם הייתה התערבות משטרה?", type: "radio", options: YES_NO, required: true },
+          {
+            name: "police_notice",
+            label: "",
+            type: "statement",
+            tone: "warning",
+            body: "יש להעביר לסוכנות אישור משטרה במסגרת המסמכים בסוף התהליך.",
+            showWhen: { field: "police", equals: "כן" },
+          },
         ],
       },
       {
-        title: "פרטי הפוליסה",
+        title: "תיאור התאונה",
         fields: [
-          { name: "insurer", label: "חברת הביטוח", type: "select", required: true, options: INSURERS, half: true },
-          { name: "policyNumber", label: "מספר פוליסה", type: "text", half: true, prefillable: true },
+          { name: "description", label: "תיאור מפורט של התאונה", type: "textarea", required: true },
           {
-            name: "branch",
-            label: "ענף הביטוח",
+            name: "voice_note",
+            label: "",
+            type: "statement",
+            body: "ניתן לשלוח גם הקלטה קולית המתארת את התאונה באמצעות קישור הווטסאפ המופיע בסוף הטופס.",
+          },
+          {
+            name: "fault",
+            label: "מי לדעתך אשם בתאונה?",
             type: "select",
             required: true,
-            options: ["רכב", "דירה", "עסק", "בריאות", "חיים", "אחר"],
+            options: ["נהג הרכב המבוטח", "נהג רכב צד שלישי", "אחר", "לא יודע"],
           },
         ],
       },
       {
-        title: "פרטי האירוע",
+        title: "פרטי נהג הרכב המבוטח",
         fields: [
-          { name: "eventDate", label: "תאריך האירוע", type: "date", required: true, half: true },
-          { name: "eventPlace", label: "מקום האירוע", type: "text", placeholder: "עיר / כתובת", half: true },
+          { name: "driverName", label: "שם הנהג", type: "text", required: true, half: true },
+          { name: "driverId", label: "תעודת זהות הנהג", type: "id", required: true, half: true },
+          { name: "driverBirthDate", label: "תאריך לידה", type: "date", required: true, half: true },
+          { name: "driverPhone", label: "מספר טלפון", type: "tel", required: true, half: true },
           {
-            name: "description",
-            label: "תיאור האירוע",
+            name: "driver_license_note",
+            label: "",
+            type: "statement",
+            body: "חובה לשלוח צילום רישיון הנהיגה של הנהג ברכב המבוטח בסוף התהליך.",
+          },
+        ],
+      },
+      {
+        title: "פרטי רכב צד שלישי והנהג",
+        fields: [
+          // The other side's details are copied from another person's papers at
+          // the scene, so their ID numbers are kept as typed, with no checksum.
+          { name: "thirdOwner", label: "שם בעל הרכב", type: "text", half: true },
+          { name: "thirdOwnerId", label: "תעודת זהות בעל הרכב", type: "text", half: true },
+          { name: "thirdDriver", label: "שם הנהג", type: "text", half: true },
+          { name: "thirdDriverId", label: "תעודת זהות הנהג", type: "text", half: true },
+          { name: "thirdPhone", label: "מספר טלפון", type: "tel", half: true },
+          { name: "thirdVehicle", label: "מספר הרכב", type: "text", required: true, half: true },
+          { name: "thirdVehicleType", label: "סוג הרכב", type: "text", half: true },
+          { name: "thirdInsurer", label: "חברת הביטוח", type: "text", half: true },
+          { name: "thirdPolicy", label: "מספר פוליסה, אם ידוע", type: "text", half: true },
+        ],
+      },
+      {
+        title: "רכבים נוספים",
+        fields: [
+          { name: "extraVehicles", label: "האם היו רכבים נוספים מעורבים בתאונה?", type: "radio", options: YES_NO, required: true },
+          {
+            name: "extraVehicleDetails",
+            label: "פרטי הרכב/ים הנוספים",
             type: "textarea",
             required: true,
-            placeholder: "מה קרה, מתי, מי היה מעורב ומה הנזק…",
+            placeholder: "נא לציין מספר רכב, שם בעל הרכב/הנהג וטלפון ככל שידוע",
+            showWhen: { field: "extraVehicles", equals: "כן" },
           },
-          { name: "police", label: "האם דווח למשטרה?", type: "radio", options: ["כן", "לא"], half: true },
-          { name: "policeRef", label: "מספר אסמכתא (אם יש)", type: "text", half: true },
         ],
       },
       {
-        title: "תיעוד",
-        description: "צילומי נזק, קבלות, הצעות מחיר או אישור משטרה.",
+        title: "עדים",
         fields: [
-          { name: "docDamage", label: "צילומי הנזק", type: "file", multiple: true },
-          { name: "docReceipts", label: "קבלות / הצעות מחיר", type: "file", multiple: true },
-          { name: "docOther", label: "מסמכים נוספים", type: "file", multiple: true },
+          { name: "witnesses", label: "האם יש עדים לתאונה?", type: "radio", options: YES_NO },
+          { name: "witnessName", label: "שם העד", type: "text", half: true, showWhen: { field: "witnesses", equals: "כן" } },
+          { name: "witnessPhone", label: "מספר טלפון של העד", type: "tel", half: true, showWhen: { field: "witnesses", equals: "כן" } },
+        ],
+      },
+      {
+        title: "מצב הרכב והמוסך",
+        description: "כל השדות בסעיף זה אינם חובה. מלאו את מה שידוע לכם כרגע.",
+        fields: [
+          { name: "drivable", label: "האם הרכב ניתן לנסיעה?", type: "radio", options: YES_NO },
+          { name: "tow", label: "האם נדרש גרר?", type: "radio", options: YES_NO },
+          { name: "vehicleLocation", label: "היכן נמצא הרכב כעת?", type: "text" },
+          { name: "garageType", label: "סוג המוסך", type: "select", options: ["מוסך פרטי", "מוסך הסדר", "טרם הוחלט"], half: true },
+          { name: "garageName", label: "שם המוסך", type: "text", half: true },
+          { name: "garagePhone", label: "מספר טלפון של המוסך", type: "tel", half: true },
+        ],
+      },
+      {
+        title: "מסמכים ותמונות לשליחה",
+        fields: [
+          {
+            name: "docs_vehicle",
+            label: "א. מסמכים ותמונות הקשורים לרכב המבוטח",
+            type: "statement",
+            items: [
+              "צילום רישיון הנהיגה של נהג הרכב המבוטח",
+              "צילום רישיון הרכב המבוטח",
+              "צילום תעודת הביטוח של הרכב המבוטח",
+              "תמונות הנזקים לרכב המבוטח",
+              "תמונות מזירת התאונה",
+              "אישור משטרה, אם הייתה התערבות משטרה",
+            ],
+          },
+          {
+            name: "docs_third",
+            label: "ב. מסמכים ותמונות הקשורים לצד שלישי",
+            type: "statement",
+            items: [
+              "צילום רישיון הנהיגה של נהג צד שלישי",
+              "צילום רישיון רכב צד שלישי",
+              "צילום תעודת הביטוח של רכב צד שלישי",
+              "תמונות הנזקים לרכב צד שלישי",
+              "תמונות מזירת התאונה הקשורות לצד שלישי",
+            ],
+          },
+          {
+            name: "docs_send",
+            label: "",
+            type: "statement",
+            body: "ניתן לשלוח גם הקלטה קולית המתארת את התאונה.",
+            action: {
+              label: "לשליחת התמונות, המסמכים והקלטה קולית: לחצו כאן",
+              href: `${WA_HREF}?text=${encodeURIComponent("שלום, אני שולח/ת תמונות ומסמכים בהמשך להודעה על תאונת דרכים.")}`,
+            },
+          },
         ],
       },
       { title: "אישור", fields: [CONSENT_FIELD] },
