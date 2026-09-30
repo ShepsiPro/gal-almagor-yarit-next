@@ -2085,6 +2085,14 @@ input.fform__file-input {
 }
 .fform__statement p { margin: 0 0 12px; }
 .fform__statement p:last-child { margin-bottom: 0; }
+/* A statement with a heading, a checklist, a button or an amber tone (the accident notice). */
+.fform__statement-title { margin: 0 0 8px; font-size: 15px; font-weight: 700; line-height: 1.5; color: var(--ink); }
+.fform__statement-list { margin: 0 0 12px; padding: 0; padding-inline-start: 20px; }
+.fform__statement-list li { margin: 0 0 4px; }
+.fform__statement-list:last-child { margin-bottom: 0; }
+.fform__statement-action { margin-top: 14px; text-align: center; text-wrap: balance; }
+.fform__statement p + .fform__statement-action { margin-top: 12px; }
+.fform__statement--warning { background: #fffaf0; border-color: #f0c987; color: #6b4306; }
 
 /* A field the agency filled in and the customer may not change. */
 .fform__lock {
