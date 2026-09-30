@@ -59,6 +59,14 @@ model Submission {
   emailSentAt DateTime?
   emailError  String?
 
+  /// Set when the AGENCY sent this form to the customer from the back-office.
+  /// The row (and its Mslahtk lead) exists from that moment, before a single
+  /// answer does, so the customer is on record from the start of the process.
+  invitedAt        DateTime?
+  /// True from the send until the customer files the form. Their answers then
+  /// land on THIS row and THIS lead, never on a second pair.
+  awaitingCustomer Boolean   @default(false)
+
   files     SubmissionFile[]
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt

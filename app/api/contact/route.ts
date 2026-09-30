@@ -3,6 +3,7 @@
 // database (the record), a Mslahtk lead (the customer card), the agency
 // mailbox (the notification).
 
+import { dmyHm } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import { CONTACT_FIELDS, CONTACT_FORM_SLUG, CONTACT_FORM_TITLE } from "@/lib/contact-form";
 import { db } from "@/lib/db";
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
     rows.push({ label: f.label, value });
   }
 
-  const submitted = new Date().toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" });
+  const submitted = dmyHm(new Date());
   rows.push({ label: "התקבל בתאריך", value: submitted });
 
   const ip = (req.headers.get("x-forwarded-for") ?? "unknown").split(",")[0].trim();

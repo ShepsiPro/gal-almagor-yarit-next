@@ -2,12 +2,14 @@
 
 import { cookies, headers } from "next/headers";
 import { ADMIN_COOKIE, readSession } from "@/lib/admin-auth";
-import { allFields, getForm } from "@/lib/forms";
+import { cleanChannels, cleanRecipient, mintAnswerLink, resendInvite, retryMslahtkSync, sendAnswer, sendInvite } from "@/lib/case-invite";
+import { allFields, formAudience, getForm } from "@/lib/forms";
+import { caseOpenedBy } from "@/lib/home-case";
 import { mintPrefillToken } from "@/lib/prefill";
 import { publicOrigin } from "@/lib/request";
+import type { SendOutcome } from "@/lib/send-types";
 import { SITE } from "@/lib/site";
 import { answersOf, getSubmission } from "@/lib/submissions";
-import { answerPrefill, loadCase, markAnswerLinkSent } from "@/lib/home-case";
 
 export type ResendResult = { url: string; locked: number; prefilled: number } | { error: string };
 
@@ -62,28 +64,76 @@ export async function buildResendLink(submissionId: string, locked: string[]): P
  * Mint the link that hands a case's form 3 to the customer.
  *
  * The values come from the LATEST saved offer, never from the request: the
- * customer is answering the offer, so the insurer, the premium and the start
- * date it names are locked, and the token names the case so the answer files
- * as its child. Building the link also stamps the offer as "sent", which is
- * what moves the case to its third step.
+ * customer is answering the offer, so the insurer, the premium, the start date
+ * and the ID it names are locked, and the token names the case so the answer
+ * files as its child. Building the link also stamps the offer as "sent", which
+ * is what moves the case to its third step.
  */
 export async function buildAnswerLink(caseId: string): Promise<ResendResult> {
   const jar = await cookies();
   if (!readSession(jar.get(ADMIN_COOKIE)?.value)) return { error: "אין הרשאה, התחברו מחדש" };
   if (!caseId) return { error: "חסר מזהה תיק" };
+  const minted = await mintAnswerLink(caseId, publicOrigin(await headers(), SITE.url));
+  if (!minted.ok) return { error: minted.error };
+  return { url: minted.url, locked: minted.locked, prefilled: minted.prefilled };
+}
 
-  const file = await loadCase(caseId).catch(() => null);
-  if (!file) return { error: "התיק לא נמצא" };
-  const pre = answerPrefill(file);
-  if (!pre || !file.latestOffer) return { error: "אין הצעה שמורה בתיק. שמרו הצעה (טופס 2) קודם." };
+// ── Sending to the customer ─────────────────────────────────────────────────
+//
+// Every action below is the back-office pressing "send": it needs the admin
+// session, opens or completes the customer's file, and delivers the link over
+// WhatsApp and/or email to the contact details on record, or hands the agent
+// a one-tap way to finish by hand (lib/case-invite.ts).
 
-  const token = mintPrefillToken({ slug: file.def.answer, values: pre.values, locked: pre.locked, caseId: file.request.id });
-  await markAnswerLinkSent(file.latestOffer.id).catch(() => undefined);
+const NO_SESSION: SendOutcome = { ok: false, error: "אין הרשאה, התחברו מחדש" };
 
+async function admin() {
+  const jar = await cookies();
+  return readSession(jar.get(ADMIN_COOKIE)?.value);
+}
+
+/**
+ * Send a form (or the calculator that leads to one) to a customer whose
+ * details the agent typed. The customer is registered in Mslahtk right now,
+ * before they have opened anything.
+ */
+export async function sendFormToCustomer(input: {
+  slug: string;
+  kind?: "form" | "simulator";
+  name?: string;
+  phone?: string;
+  email?: string;
+  channels?: string[];
+}): Promise<SendOutcome> {
+  const who = await admin();
+  if (!who) return NO_SESSION;
+  const form = getForm(String(input?.slug ?? ""));
+  if (!form || formAudience(form) !== "customer" || form.requiresToken) return { ok: false, error: "הטופס אינו ניתן לשליחה" };
+  const kind = input.kind === "simulator" ? "simulator" : "form";
+  if (kind === "simulator" && !caseOpenedBy(form)?.simulatorPath) return { ok: false, error: "לטופס הזה אין מחשבון" };
+  const to = cleanRecipient(input);
+  if (!to.ok) return { ok: false, error: to.error };
   const origin = publicOrigin(await headers(), SITE.url);
-  return {
-    url: `${origin}/forms/${file.def.answer}?p=${encodeURIComponent(token)}`,
-    locked: pre.locked.length,
-    prefilled: Object.keys(pre.values).length,
-  };
+  return sendInvite({ form, kind, to: to.value, channels: cleanChannels(input.channels), agency: who, origin, page: "/admin/send" });
+}
+
+/** Send a form the customer has not filled yet once more: a fresh link to the same file. */
+export async function resendToCustomer(submissionId: string, channels: string[]): Promise<SendOutcome> {
+  if (!(await admin())) return NO_SESSION;
+  if (!submissionId) return { ok: false, error: "חסר מזהה פנייה" };
+  return resendInvite({ id: submissionId, channels: cleanChannels(channels), origin: publicOrigin(await headers(), SITE.url) });
+}
+
+/** Send form 3 to the phone and email the customer gave in form 1. */
+export async function sendAnswerToCustomer(caseId: string, channels: string[]): Promise<SendOutcome> {
+  if (!(await admin())) return NO_SESSION;
+  if (!caseId) return { ok: false, error: "חסר מזהה תיק" };
+  return sendAnswer({ caseId, channels: cleanChannels(channels), origin: publicOrigin(await headers(), SITE.url) });
+}
+
+/** "Try again" on the notice that says Mslahtk did not take the customer: register a sent file, or fill in a filled one. */
+export async function retryMslahtk(submissionId: string): Promise<{ ok: true; note: string } | { ok: false; error: string }> {
+  if (!(await admin())) return { ok: false, error: "אין הרשאה, התחברו מחדש" };
+  if (!submissionId) return { ok: false, error: "חסר מזהה פנייה" };
+  return retryMslahtkSync(submissionId);
 }

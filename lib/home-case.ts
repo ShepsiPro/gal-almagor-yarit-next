@@ -17,13 +17,15 @@
 
 import type { Prisma, Submission } from "@prisma/client";
 import { db } from "./db";
+import { dmyHm, isoToDisplay, israelDayIso, policyEndIso } from "./dates";
 import { getCase, getForm, type CaseDef, type FormDef } from "./forms";
 import { computeHomeQuote, normalizeInput, roundShekel, type HomeQuoteInput, type HomeQuoteResult } from "./home-quote";
 import { answersOf } from "./submissions";
 import { SITE } from "./site";
 
 export type Decision = "approved" | "change" | "declined";
-export type CaseStage = "request" | "offer" | "sent" | "answered";
+/** invited: the agency sent form 1 and the customer has not filled it yet. */
+export type CaseStage = "invited" | "request" | "offer" | "sent" | "answered";
 
 export type SimulatorSnapshot = { input: HomeQuoteInput; result: HomeQuoteResult; at: string | null };
 
@@ -138,7 +140,9 @@ export function answerLinkSentAt(offer: Pick<Submission, "answers"> | null): str
 export function caseStageOf(
   def: CaseDef,
   children: Pick<Submission, "formSlug" | "answers" | "createdAt">[],
+  awaitingCustomer = false,
 ): { stage: CaseStage; decision: Decision | null } {
+  if (awaitingCustomer) return { stage: "invited", decision: null };
   const answers = children.filter((c) => c.formSlug === def.answer);
   const offers = children.filter((c) => c.formSlug === def.offer);
   const latestAnswer = answers[answers.length - 1] ?? null;
@@ -150,6 +154,8 @@ export function caseStageOf(
 
 export function stageLabel(stage: CaseStage, decision: Decision | null): string {
   switch (stage) {
+    case "invited":
+      return "נשלח טופס 1";
     case "request":
       return "התקבלה בקשה";
     case "offer":
@@ -176,7 +182,7 @@ export async function loadCase(requestId: string): Promise<CaseFile | null> {
 
   const offers = request.children.filter((c) => c.formSlug === def.offer);
   const answers = request.children.filter((c) => c.formSlug === def.answer);
-  const { stage, decision } = caseStageOf(def, request.children);
+  const { stage, decision } = caseStageOf(def, request.children, request.awaitingCustomer);
   return {
     def,
     request,
@@ -226,10 +232,6 @@ function num(v: string | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function isoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
 /** What the request form opens with when the customer arrives from the simulator. */
 export function requestPrefillFromSimulator(input: HomeQuoteInput): Record<string, string> {
   const building = input.buildingSum > 0;
@@ -271,10 +273,9 @@ export function offerPrefill(file: CaseFile, previous?: Record<string, string>):
 
   const a = answersOf(file.request);
   const sim = file.simulator;
-  const today = new Date();
-  const end = new Date(today);
-  end.setFullYear(end.getFullYear() + 1);
-  end.setDate(end.getDate() - 1);
+  // Today as Israel counts it: toISOString() is UTC, a day behind between
+  // midnight and 03:00 here, which put yesterday on an offer written at night.
+  const today = israelDayIso();
 
   const address = [
     [a.street, a.house_no].filter(Boolean).join(" "),
@@ -293,10 +294,10 @@ export function offerPrefill(file: CaseFile, previous?: Record<string, string>):
     offered_kind: REQUEST_KIND[a.insurance_kind ?? ""] ?? "",
     building_sum: sim ? String(Math.round(sim.input.buildingSum)) : a.building_sum ?? "",
     contents_sum: sim ? String(Math.round(sim.input.contentsSum)) : a.contents_sum ?? "",
-    period_start: isoDate(today),
-    period_end: isoDate(end),
+    period_start: today,
+    period_end: policyEndIso(today),
     agency_name: SITE.legalName,
-    offer_date: isoDate(today),
+    offer_date: today,
     har_result: a.har_consent ? "" : "לא בוצעה בדיקה",
   };
 
@@ -340,9 +341,13 @@ export function answerPrefill(file: CaseFile): { values: Record<string, string>;
     premium: o.premium ?? "",
     period_start: o.period_start ?? "",
     sign_name: o.insured_name ?? "",
+    // The final approval carries the ID too: the customer confirms it, they do
+    // not type it again. It is the same number the offer is written for, so it
+    // is locked like the one at the top of the form.
+    sign_id: o.insured_id ?? "",
   };
   for (const k of Object.keys(values)) if (!values[k]) delete values[k];
-  const locked = ["insured_name", "insured_id", "insured_address", "insurer", "premium", "period_start"].filter((k) => values[k]);
+  const locked = ["insured_name", "insured_id", "insured_address", "insurer", "premium", "period_start", "sign_id"].filter((k) => values[k]);
   return { values, locked };
 }
 
@@ -358,9 +363,9 @@ export function leadFieldsForOffer(a: Record<string, string>): Record<string, st
     home_offer_sums: sums,
     home_offer_premium: a.premium ? `${num(a.premium).toLocaleString("he-IL")} ₪` : "",
     home_offer_payments: a.payments ?? "",
-    home_offer_period: [a.period_start, a.period_end].filter(Boolean).join(" עד "),
+    home_offer_period: [isoToDisplay(a.period_start), isoToDisplay(a.period_end)].filter(Boolean).join(" עד "),
     home_offer_har: a.har_result ?? "",
-    home_offer_savedAt: new Date().toISOString(),
+    home_offer_savedAt: dmyHm(new Date()),
   };
 }
 
@@ -368,7 +373,7 @@ export function leadFieldsForAnswer(a: Record<string, string>): Record<string, s
   return {
     home_answer_decision: a.decision ?? "",
     home_answer_details: a.change_details ?? "",
-    home_answer_requestedStart: a.requested_start ?? "",
-    home_answer_at: new Date().toISOString(),
+    home_answer_requestedStart: isoToDisplay(a.requested_start),
+    home_answer_at: dmyHm(new Date()),
   };
 }

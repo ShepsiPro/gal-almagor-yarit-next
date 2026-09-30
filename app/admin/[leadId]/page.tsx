@@ -3,14 +3,18 @@ import { notFound, redirect } from "next/navigation";
 import type { SubmissionFile } from "@prisma/client";
 import AnsweredForm from "@/components/AnsweredForm";
 import CasePanel from "@/components/CasePanel";
+import InviteResend from "@/components/InviteResend";
+import MslahtkSyncNotice from "@/components/MslahtkSyncNotice";
 import StatusChip from "@/components/StatusChip";
 import { CONTACT_FIELDS, CONTACT_FORM_SLUG } from "@/lib/contact-form";
+import { lastSendLine } from "@/lib/case-invite";
 import { allFields, formAudience, formatBytes, getForm } from "@/lib/forms";
 import { whenHe } from "@/lib/format";
 import { loadCase, parentCaseId } from "@/lib/home-case";
 import { dashboardLeadUrl } from "@/lib/mslahtk";
 import { answersOf, getSubmission } from "@/lib/submissions";
 import { requireAdmin } from "../session";
+import { resendToCustomer, retryMslahtk } from "../actions";
 
 export const metadata = { robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -72,7 +76,7 @@ export default async function SubmissionDetail({ params }: { params: Promise<{ l
   // A request opens a case; an offer or an answer belongs to one.
   const file = await loadCase(sub.id);
   const caseId = file ? null : await parentCaseId(sub);
-  const resendable = Boolean(form && formAudience(form) === "customer" && !form.requiresToken);
+  const resendable = Boolean(form && formAudience(form) === "customer" && !form.requiresToken && !sub.awaitingCustomer);
   // A drawn signature is shown inside the form, beside its label, not as a document.
   const signatureFields = new Set(form ? allFields(form).filter((f) => f.type === "signature").map((f) => f.name) : []);
   const documents = sub.files.filter((f) => !signatureFields.has(f.fieldName));
@@ -134,7 +138,29 @@ export default async function SubmissionDetail({ params }: { params: Promise<{ l
         <StatusChip leadId={sub.mslahtkLeadId} status={sub.mslahtkStatus} />
       </div>
 
+      {!sub.parentId && sub.mslahtkError && <MslahtkSyncNotice submissionId={sub.id} error={sub.mslahtkError} retry={retryMslahtk} />}
+
       {file && <CasePanel file={file} />}
+
+      {/* A form the agency sent that is not part of a case: nothing to show until the customer fills it. */}
+      {!file && sub.awaitingCustomer && (
+        <section className="adm__case" aria-label="ממתין למילוי">
+          <div className="adm__case-head">
+            <h2 className="adm__sectiontitle" style={{ margin: 0 }}>
+              ממתין שהלקוח ימלא את הטופס
+            </h2>
+            <span className="adm__status adm__status--stage-invited">נשלח, ממתין למילוי</span>
+          </div>
+          <p className="adm__muted">
+            הטופס נשלח ללקוח {whenHe(sub.invitedAt ?? sub.createdAt)}.{" "}
+            {sub.mslahtkLeadId
+              ? "הלקוח כבר רשום במסלחתק, והתשובות ימולאו בפנייה הזו ובכרטיס שלו ברגע שיישלחו."
+              : "הלקוח עדיין לא נרשם במסלחתק. התשובות ימולאו בפנייה הזו ברגע שיישלחו."}
+          </p>
+          {lastSendLine(sub) && <p className="adm__muted">{lastSendLine(sub)}</p>}
+          <InviteResend submissionId={sub.id} phone={sub.phone} email={sub.email} send={resendToCustomer} />
+        </section>
+      )}
 
       {documents.length > 0 && (
         <section className="adm__section">
@@ -147,7 +173,7 @@ export default async function SubmissionDetail({ params }: { params: Promise<{ l
         </section>
       )}
 
-      {form ? <AnsweredForm form={form} fields={fields} files={sub.files} /> : <RawAnswers slug={sub.formSlug} fields={fields} />}
+      {sub.awaitingCustomer ? null : form ? <AnsweredForm form={form} fields={fields} files={sub.files} /> : <RawAnswers slug={sub.formSlug} fields={fields} />}
     </main>
   );
 }

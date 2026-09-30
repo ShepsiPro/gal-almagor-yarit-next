@@ -1,6 +1,9 @@
 import Link from "next/link";
-import { buildAnswerLink } from "@/app/admin/actions";
+import { buildAnswerLink, resendToCustomer, sendAnswerToCustomer } from "@/app/admin/actions";
 import CaseAnswerLink from "@/components/CaseAnswerLink";
+import InviteResend from "@/components/InviteResend";
+import { lastSendLine } from "@/lib/case-invite";
+import { isoToDisplay } from "@/lib/dates";
 import { answerLinkSentAt, decisionLabel, stageLabel, type CaseFile } from "@/lib/home-case";
 import { encodeSnapshot, roundShekel } from "@/lib/home-quote";
 import { whenHe } from "@/lib/format";
@@ -13,6 +16,10 @@ export default function CasePanel({ file }: { file: CaseFile }) {
   const answer = latestAnswer ? answersOf(latestAnswer) : null;
   const sentAt = answerLinkSentAt(latestOffer);
   const stageKey = stage === "answered" ? decision ?? "answered" : stage;
+  // The agency sent form 1 and the customer has not filled it yet.
+  const awaiting = stage === "invited";
+  const invitedLine = awaiting ? lastSendLine(request) : null;
+  const answerSendLine = latestOffer ? lastSendLine(latestOffer) : null;
 
   return (
     <section className="adm__case" aria-label={def.title}>
@@ -38,13 +45,27 @@ export default function CasePanel({ file }: { file: CaseFile }) {
       )}
 
       <ol className="adm__steps">
-        <li className="adm__step is-done">
+        <li className={`adm__step${awaiting ? " is-next" : " is-done"}`}>
           <span className="adm__step-num">1</span>
           <span className="adm__step-title">בקשה (טופס 1)</span>
-          <div className="adm__step-body">התקבלה {whenHe(request.createdAt)}</div>
+          <div className="adm__step-body">
+            {awaiting ? (
+              <>
+                <p>נשלחה ללקוח {whenHe(request.invitedAt ?? request.createdAt)}. ממתינים למילוי.</p>
+                {invitedLine && <p>{invitedLine}</p>}
+              </>
+            ) : (
+              <>התקבלה {whenHe(request.createdAt)}</>
+            )}
+          </div>
+          {awaiting && (
+            <div className="adm__step-actions">
+              <InviteResend submissionId={request.id} phone={request.phone} email={request.email} send={resendToCustomer} />
+            </div>
+          )}
         </li>
 
-        <li className={`adm__step${latestOffer ? " is-done" : " is-next"}`}>
+        <li className={`adm__step${latestOffer ? " is-done" : awaiting ? "" : " is-next"}`}>
           <span className="adm__step-num">2</span>
           <span className="adm__step-title">הצעה (טופס 2)</span>
           <div className="adm__step-body">
@@ -55,31 +76,44 @@ export default function CasePanel({ file }: { file: CaseFile }) {
                 </p>
                 <p>נשמרה {whenHe(latestOffer.createdAt)}</p>
               </>
+            ) : awaiting ? (
+              <p>זמינה לאחר שהלקוח ימלא את טופס 1.</p>
             ) : (
               <p>טרם הוכנה. הבקשה נפתחת לצד הטופס.</p>
             )}
           </div>
-          <div className="adm__step-actions">
-            <Link className="adm__btn adm__btn--primary adm__btn--sm" href={`/admin/${request.id}/offer`}>
-              {latestOffer ? "עריכת ההצעה" : "הכנת הצעה"}
-            </Link>
-            {latestOffer && (
-              <Link className="adm__btn adm__btn--sm" href={`/admin/${latestOffer.id}`}>
-                צפייה
+          {!awaiting && (
+            <div className="adm__step-actions">
+              <Link className="adm__btn adm__btn--primary adm__btn--sm" href={`/admin/${request.id}/offer`}>
+                {latestOffer ? "עריכת ההצעה" : "הכנת הצעה"}
               </Link>
-            )}
-          </div>
+              {latestOffer && (
+                <Link className="adm__btn adm__btn--sm" href={`/admin/${latestOffer.id}`}>
+                  צפייה
+                </Link>
+              )}
+            </div>
+          )}
         </li>
 
         <li className={`adm__step${sentAt ? " is-done" : latestOffer ? " is-next" : ""}`}>
           <span className="adm__step-num">3</span>
           <span className="adm__step-title">טופס תשובה (טופס 3)</span>
           <div className="adm__step-body">
-            {sentAt ? <p>הקישור נוצר {whenHe(sentAt)}</p> : latestOffer ? <p>ההצעה מוכנה, שלחו ללקוח את הקישור לתשובה.</p> : <p>זמין לאחר שמירת ההצעה.</p>}
+            {sentAt ? (
+              <>
+                <p>הקישור נוצר {whenHe(sentAt)}</p>
+                {answerSendLine && <p>{answerSendLine}</p>}
+              </>
+            ) : latestOffer ? (
+              <p>ההצעה מוכנה. שולחים ללקוח לפי הפרטים שמסר בטופס 1.</p>
+            ) : (
+              <p>זמין לאחר שמירת ההצעה.</p>
+            )}
           </div>
           {latestOffer && (
             <div className="adm__step-actions">
-              <CaseAnswerLink caseId={request.id} phone={request.phone} customerName={request.name} build={buildAnswerLink} />
+              <CaseAnswerLink caseId={request.id} phone={request.phone} email={request.email} build={buildAnswerLink} send={sendAnswerToCustomer} />
             </div>
           )}
         </li>
@@ -94,7 +128,7 @@ export default function CasePanel({ file }: { file: CaseFile }) {
                   <strong>{decisionLabel(decision)}</strong>
                 </p>
                 {answer.change_details && <p>{answer.change_details}</p>}
-                {answer.requested_start && <p>מועד תחילה מבוקש: {answer.requested_start}</p>}
+                {answer.requested_start && <p>מועד תחילה מבוקש: {isoToDisplay(answer.requested_start)}</p>}
                 <p>התקבלה {whenHe(latestAnswer.createdAt)}</p>
               </>
             ) : (

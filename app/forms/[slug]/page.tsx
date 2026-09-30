@@ -35,8 +35,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 /** The estimate the customer brought along from the simulator. */
-function EstimateCard({ input, result }: { input: HomeQuoteInput; result: HomeQuoteResult }) {
-  const back = `/simulator/home?sim=${encodeURIComponent(encodeSnapshot(input))}`;
+function EstimateCard({ input, result, token }: { input: HomeQuoteInput; result: HomeQuoteResult; token?: string }) {
+  // Going back to change the numbers must not lose the file the agency opened.
+  const back = `/simulator/home?sim=${encodeURIComponent(encodeSnapshot(input))}${token ? `&p=${encodeURIComponent(token)}` : ""}`;
   return (
     <aside className="fform__estimate" aria-label="ההערכה הראשונית מהמחשבון">
       <div className="fform__estimate-main">
@@ -152,7 +153,7 @@ export default async function FormPage({ params, searchParams }: PageProps) {
             <LinkExpired title={form.title} />
           ) : (
             <>
-              {estimate && <EstimateCard input={estimate.input} result={estimate.result} />}
+              {estimate && <EstimateCard input={estimate.input} result={estimate.result} token={tokenOk && sent?.inviteId ? rawToken : undefined} />}
               <FormRenderer
                 form={form}
                 prefill={prefill}

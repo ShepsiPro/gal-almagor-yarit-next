@@ -1,5 +1,5 @@
 import type { SubmissionFile } from "@prisma/client";
-import { isFieldVisible, type FormDef } from "@/lib/forms";
+import { displayAnswer, isFieldVisible, type FormDef } from "@/lib/forms";
 
 /**
  * A filled form, read back through its definition.
@@ -45,7 +45,7 @@ export default function AnsweredForm({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img className="adm__sigimg" src={`/admin/files/${signatureFile(field.name)!.id}`} alt="חתימה" />
                     ) : (
-                      value
+                      displayAnswer(field, value)
                     )}
                   </dd>
                 </div>

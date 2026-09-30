@@ -7,6 +7,8 @@
 //
 // To add a form, append a FormDef to FORMS — no other file needs to change.
 
+import { isoToDisplay } from "./dates";
+
 export type FieldType =
   | "text"
   | "tel"
@@ -144,6 +146,11 @@ const INSURERS = [
   "שלמה ביטוח",
   "אחר / לא ידוע",
 ] as const;
+
+// A floor only means something for a flat in a shared building. A house
+// (private, semi-detached, cottage) is one address from the ground to the roof,
+// so "which floor" and "how many floors in the building" have no answer there.
+const FLOORED_TYPES = ["דירה בבית משותף", "אחר"] as const;
 
 const YES_NO = ["כן", "לא"] as const;
 const YES_NO_NEG = ["לא", "כן"] as const;
@@ -648,8 +655,8 @@ export const FORMS: readonly FormDef[] = [
             options: ["דירה בבית משותף", "בית פרטי", "דו-משפחתי / קוטג'", "אחר"],
           },
           { name: "area_m2", label: 'שטח הדירה במ"ר', type: "number", required: true, min: 10, max: 5000, half: true },
-          { name: "floor", label: "קומה", type: "text", half: true },
-          { name: "building_floors", label: "מספר קומות בבניין", type: "text", half: true },
+          { name: "floor", label: "קומה", type: "text", half: true, showWhen: { field: "property_type", in: FLOORED_TYPES } },
+          { name: "building_floors", label: "מספר קומות בבניין", type: "text", half: true, showWhen: { field: "property_type", in: FLOORED_TYPES } },
           { name: "build_year", label: "שנת בנייה משוערת", type: "number", min: 1900, max: 2100, half: true },
           {
             name: "apartment_use",
@@ -1037,7 +1044,7 @@ export const FORMS: readonly FormDef[] = [
               "הצעת ביטוח זו נערכה בהתאם לפרטים, לנתונים ולצרכים שנמסרו בטופס 1. ההצעה כפופה לאישור חברת הביטוח, לתנאי החיתום ולתנאי הפוליסה. לאחר עיון בהצעה יש להשיב באמצעות טופס 3.",
           },
           { name: "agency_name", label: "שם הסוכנות", type: "text", required: true, half: true },
-          { name: "agent_name", label: "שם הסוכן/ת", type: "text", required: true, half: true },
+          { name: "agent_name", label: "שם הנציג/ה בסוכנות", type: "text", required: true, half: true },
           { name: "offer_date", label: "תאריך ההצעה", type: "date", required: true, half: true },
         ],
       },
@@ -1212,6 +1219,24 @@ export function visibleFields(
   values: Record<string, string | string[] | undefined>,
 ): FormField[] {
   return allFields(form).filter((f) => isFieldVisible(form, f, values));
+}
+
+/** An answer as a person reads it: a date is day first, everything else as stored. */
+export function displayAnswer(field: Pick<FormField, "type">, value: string): string {
+  return field.type === "date" ? isoToDisplay(value) : value;
+}
+
+/**
+ * The answers with every date turned day first, for a copy that is READ by a
+ * person (the Mslahtk card, an email). The site's own rows keep ISO, because
+ * that is what a form field, a signed link and a re-send all speak.
+ */
+export function answersForReading(form: FormDef, answers: Record<string, string>): Record<string, string> {
+  const out = { ...answers };
+  for (const f of allFields(form)) {
+    if (f.type === "date" && out[f.name]) out[f.name] = isoToDisplay(out[f.name]);
+  }
+  return out;
 }
 
 /** Options that may not be selected alongside `option` in the same group. */

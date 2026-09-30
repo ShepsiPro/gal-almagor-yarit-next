@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import HomeQuoteSimulator from "@/components/HomeQuoteSimulator";
 import { decodeSnapshot } from "@/lib/home-quote";
+import { verifyPrefillToken } from "@/lib/prefill";
 import { SITE } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -21,6 +22,11 @@ export default async function HomeSimulatorPage({
   const q = await searchParams;
   const raw = Array.isArray(q.sim) ? q.sim[0] : q.sim;
   const initial = decodeSnapshot(raw);
+  // A calculator link the agency sent carries the customer's file in `p`. It goes
+  // on to the request form untouched, so the answers complete THAT file.
+  const rawToken = Array.isArray(q.p) ? q.p[0] : q.p;
+  const invite = verifyPrefillToken(rawToken);
+  const inviteToken = rawToken && invite?.inviteId && invite.slug === "home-request" ? rawToken : undefined;
 
   return (
     <>
@@ -40,7 +46,7 @@ export default async function HomeSimulatorPage({
             כמה עולה לבטח את הדירה? מלאו את הפרטים הבסיסיים וקבלו הערכה ראשונית מיד, בלי למסור פרטים אישיים. מעוניינים
             בהצעה מסודרת? בסוף המחשבון עוברים לטופס בקשה קצר, והפרטים שכבר מילאתם עוברים איתכם.
           </p>
-          <HomeQuoteSimulator initial={initial} />
+          <HomeQuoteSimulator initial={initial} inviteToken={inviteToken} />
         </div>
       </main>
       <Footer />

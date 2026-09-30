@@ -22,6 +22,11 @@ export type NewSubmission = {
   resentFromId?: string | null;
   /** The case (request submission) this offer or answer belongs to. */
   parentId?: string | null;
+  /**
+   * The agency SENT this form and the customer has not filled it yet: the row
+   * is opened now, empty, and their answers complete it later (lib/case-invite).
+   */
+  invite?: boolean;
 };
 
 export async function createSubmission(input: NewSubmission): Promise<Submission> {
@@ -36,6 +41,7 @@ export async function createSubmission(input: NewSubmission): Promise<Submission
       source: (input.source ?? undefined) as Prisma.InputJsonObject | undefined,
       resentFromId: input.resentFromId || null,
       parentId: input.parentId || null,
+      ...(input.invite ? { invitedAt: new Date(), awaitingCustomer: true } : {}),
     },
   });
 }
