@@ -2617,6 +2617,14 @@ input.fform__file-input {
 .flinks__channels { grid-column: 1 / -1; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .flinks__channels-label { font-size: 12px; font-weight: 700; color: var(--ink); letter-spacing: 0.06em; }
 .flinks__channels-note { font-size: 13px; color: var(--muted); }
+/* What the agency fills in before it sends (FormField.agencyFills): a full row between the form's name and its buttons. */
+.flinks__fills { flex-basis: 100%; order: 2; display: grid; gap: 12px; padding: 14px 16px 16px; border: 1px dashed var(--line-strong); border-radius: 8px; background: var(--surface); }
+.flinks__fills-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+.flinks__fills-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.flinks__fills-note { margin: 0; font-size: 13px; color: var(--muted); }
+.flinks__item--fills .flinks__actions { order: 3; }
+.flinks__item--fills .flinks__result { order: 4; }
+@media (max-width: 768px) { .flinks__fills-grid { grid-template-columns: 1fr; } }
 .flinks__result { flex-basis: 100%; display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
 .sendch { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
 .sendch__opt { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #344054; cursor: pointer; }

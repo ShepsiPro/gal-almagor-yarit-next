@@ -412,6 +412,9 @@ function normalizePrefill(fields: FormField[], prefill: Record<string, string>):
     if (field?.type === "checkbox" && field.options) {
       const opts = new Set<string>(field.options);
       out[name] = value.split(", ").map((v) => v.trim()).filter((v) => opts.has(v));
+    } else if (field?.type === "select" && field.options && !field.options.includes(value)) {
+      // Not one of the choices (a link typed over by hand): leave it empty rather than post something nobody chose.
+      continue;
     } else {
       out[name] = value;
     }

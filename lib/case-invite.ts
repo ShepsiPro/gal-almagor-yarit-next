@@ -25,7 +25,7 @@ import type { Prisma, Submission } from "@prisma/client";
 import type { AdminIdentity } from "./admin-auth";
 import { db } from "./db";
 import { dmyHm } from "./dates";
-import { allFields, answersForReading, getForm, identityField, type FormDef } from "./forms";
+import { allFields, answersForReading, cleanAgencyFill, getForm, identityField, type FormDef } from "./forms";
 import { answerPrefill, caseOpenedBy, loadCase, markAnswerLinkSent } from "./home-case";
 import { answerMessage, inviteMessage, type OutgoingMessage } from "./invite-messages";
 import { customerMailMode, renderCustomerEmail, sendCustomerMail } from "./mailer";
@@ -137,6 +137,15 @@ export function sendLogOf(sub: Pick<Submission, "source">): SendLogEntry[] {
   return raw.filter((e): e is SendLogEntry => Boolean(e) && typeof e === "object" && typeof (e as SendLogEntry).at === "string");
 }
 
+/**
+ * What the agency filled in when it sent this row's form (the vehicle number, the
+ * insurance company ...), kept on the row so that sending the form again carries
+ * the same details.
+ */
+export function prefillOf(sub: Pick<Submission, "source">, form: FormDef): Record<string, string> {
+  return cleanAgencyFill(form, objectOf(sub.source).prefill);
+}
+
 /** "נשלח בווטסאפ ובמייל 30/09/2026 13:05", or null when nothing has gone out. */
 export function lastSendLine(sub: Pick<Submission, "source">): string | null {
   const log = sendLogOf(sub);
@@ -163,13 +172,14 @@ export async function recordSends(submissionId: string, outcomes: ChannelOutcome
 // ── Opening the file ────────────────────────────────────────────────────────
 
 /** The customer, filed in Mslahtk (which also gives them their customer card) and marked as contacted. */
-async function registerLead(sub: { id: string }, form: FormDef, to: Recipient, page: string): Promise<Registration> {
+async function registerLead(sub: { id: string }, form: FormDef, to: Recipient, page: string, prefill: Record<string, string> = {}): Promise<Registration> {
   const lead = await submitLead({
     name: to.name || undefined,
     phone: to.phone || undefined,
     email: to.email || undefined,
     message: `נשלח ללקוח: ${form.title}`,
-    fields: { _submissionId: sub.id, form_stage: "נשלח ללקוח, ממתין למילוי", form_sentAt: dmyHm(new Date()) },
+    // What the agency already knows (its own details come first, so they never overwrite the system's keys).
+    fields: { ...prefill, _submissionId: sub.id, form_stage: "נשלח ללקוח, ממתין למילוי", form_sentAt: dmyHm(new Date()) },
     ctaId: `form_${form.slug}`,
     ctaLabel: form.title,
     category: `form:${form.slug}`,
@@ -220,8 +230,12 @@ export async function openInvite(input: {
   kind: "form" | "simulator";
   agency: AdminIdentity | null;
   page: string;
-}): Promise<{ id: string; reused: boolean; registration?: Registration }> {
+  /** What the agent filled in for the customer (FormField.agencyFills); anything else is ignored. */
+  prefill?: Record<string, string>;
+}): Promise<{ id: string; reused: boolean; registration?: Registration; prefill: Record<string, string> }> {
   const { form, to, kind, agency, page } = input;
+  const typed = cleanAgencyFill(form, input.prefill);
+  const hasTyped = Object.keys(typed).length > 0;
 
   const pending = await db.submission.findMany({
     where: { formSlug: form.slug, awaitingCustomer: true, parentId: null, createdAt: { gt: new Date(Date.now() - INVITE_TTL_MS) } },
@@ -231,14 +245,16 @@ export async function openInvite(input: {
   const found = pending.find((r) => sameInvitee(r, to));
 
   if (found) {
-    const source = { ...objectOf(found.source), inviteKind: kind };
+    // Pressing "send" again with nothing typed keeps what the first send carried.
+    const prefill = hasTyped ? typed : prefillOf(found, form);
+    const source = { ...objectOf(found.source), inviteKind: kind, ...(hasTyped ? { prefill } : {}) };
     await db.submission.update({
       where: { id: found.id },
       data: { name: to.name || found.name, phone: to.phone || found.phone, email: to.email || found.email, source: source as Prisma.InputJsonObject },
     });
     // A file whose lead never got created (Mslahtk was down) gets another try.
-    const registration = found.mslahtkLeadId ? undefined : await registerLead(found, form, to, page);
-    return { id: found.id, reused: true, registration };
+    const registration = found.mslahtkLeadId ? undefined : await registerLead(found, form, to, page, prefill);
+    return { id: found.id, reused: true, registration, prefill };
   }
 
   const sub = await createSubmission({
@@ -248,15 +264,15 @@ export async function openInvite(input: {
     phone: to.phone || undefined,
     email: to.email || undefined,
     answers: {},
-    source: { page, invite: true, inviteKind: kind, ...(agency ? { agency: agency.email || agency.sub } : {}) },
+    source: { page, invite: true, inviteKind: kind, ...(agency ? { agency: agency.email || agency.sub } : {}), ...(hasTyped ? { prefill: typed } : {}) },
     invite: true,
   });
-  const registration = await registerLead(sub, form, to, page);
-  return { id: sub.id, reused: false, registration };
+  const registration = await registerLead(sub, form, to, page, typed);
+  return { id: sub.id, reused: false, registration, prefill: typed };
 }
 
 /** The personal link: signed, carrying the row it completes, with what the agent already knows filled in. */
-export function inviteLink(opts: { form: FormDef; id: string; to: Recipient; origin: string; kind: "form" | "simulator" }): string {
+export function inviteLink(opts: { form: FormDef; id: string; to: Recipient; origin: string; kind: "form" | "simulator"; prefill?: Record<string, string> }): string {
   const { form, id, to, origin, kind } = opts;
   // A case that has a calculator can be sent starting from it: the customer
   // runs the estimate, and the "continue" button carries this same link on.
@@ -267,6 +283,8 @@ export function inviteLink(opts: { form: FormDef; id: string; to: Recipient; ori
   const names = new Set(allFields(form).map((f) => f.name));
   if (names.has("phone") && to.phone) values.phone = to.phone;
   if (names.has("email") && to.email) values.email = to.email;
+  // What the agency filled in: the customer opens the form with it, and may correct it (nothing is locked).
+  Object.assign(values, cleanAgencyFill(form, opts.prefill));
   const token = mintPrefillToken({ slug: form.slug, values, locked: [], inviteId: id });
   const path = kind === "simulator" && simulatorPath ? simulatorPath : `/forms/${form.slug}`;
   return `${origin}${path}?p=${encodeURIComponent(token)}`;
@@ -281,10 +299,11 @@ export async function sendInvite(input: {
   agency: AdminIdentity | null;
   origin: string;
   page: string;
+  prefill?: Record<string, string>;
 }): Promise<SendOutcome> {
   const { form, kind, to, channels, agency, origin, page } = input;
-  const opened = await openInvite({ form, to, kind, agency, page });
-  const link = inviteLink({ form, id: opened.id, to, origin, kind });
+  const opened = await openInvite({ form, to, kind, agency, page, prefill: input.prefill });
+  const link = inviteLink({ form, id: opened.id, to, origin, kind, prefill: opened.prefill });
   const outcomes = await deliver(channels, to, inviteMessage({ title: form.title, link, name: to.name, calculator: kind === "simulator" }));
   if (outcomes.length) await recordSends(opened.id, outcomes).catch(() => undefined);
   return { ok: true, id: opened.id, link, reused: opened.reused, registration: opened.registration, outcomes };
@@ -299,9 +318,11 @@ export async function resendInvite(input: { id: string; channels: readonly Chann
   const to: Recipient = { name: row.name ?? "", phone: row.phone ?? "", email: row.email ?? "" };
   if (!to.phone && !to.email) return { ok: false, error: "אין טלפון או דוא״ל בפנייה" };
   const kind = objectOf(row.source).inviteKind === "simulator" ? "simulator" : "form";
+  // The details the agency filled in at the first send travel again with the fresh link.
+  const prefill = prefillOf(row, form);
   // A file whose lead was never created (Mslahtk was down at the first send) gets it now.
-  const registration = row.mslahtkLeadId ? undefined : await registerLead(row, form, to, "/admin");
-  const link = inviteLink({ form, id: row.id, to, origin: input.origin, kind });
+  const registration = row.mslahtkLeadId ? undefined : await registerLead(row, form, to, "/admin", prefill);
+  const link = inviteLink({ form, id: row.id, to, origin: input.origin, kind, prefill });
   const outcomes = await deliver(input.channels, to, inviteMessage({ title: form.title, link, name: to.name, calculator: kind === "simulator" }));
   if (outcomes.length) await recordSends(row.id, outcomes).catch(() => undefined);
   return { ok: true, id: row.id, link, registration, outcomes };
@@ -419,7 +440,7 @@ export async function retryMslahtkSync(id: string): Promise<{ ok: true; note: st
     if (row.mslahtkLeadId) return { ok: true, note: "הלקוח כבר רשום במסלחתק" };
     const form = getForm(row.formSlug);
     if (!form) return { ok: false, error: "טופס לא מזוהה" };
-    const done = await registerLead(row, form, { name: row.name ?? "", phone: row.phone ?? "", email: row.email ?? "" }, "/admin");
+    const done = await registerLead(row, form, { name: row.name ?? "", phone: row.phone ?? "", email: row.email ?? "" }, "/admin", prefillOf(row, form));
     return done.ok ? { ok: true, note: "הלקוח נרשם במסלחתק" } : { ok: false, error: done.skipped ? "החיבור למסלחתק לא מוגדר" : done.error };
   }
   const done = await fillLeadFromRow(row, "/admin");

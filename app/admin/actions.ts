@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { ADMIN_COOKIE, readSession } from "@/lib/admin-auth";
 import { cleanChannels, cleanRecipient, mintAnswerLink, resendInvite, retryMslahtkSync, sendAnswer, sendInvite } from "@/lib/case-invite";
-import { allFields, formAudience, getForm } from "@/lib/forms";
+import { allFields, cleanAgencyFill, formAudience, getForm } from "@/lib/forms";
 import { caseOpenedBy } from "@/lib/home-case";
 import { mintPrefillToken } from "@/lib/prefill";
 import { publicOrigin } from "@/lib/request";
@@ -104,6 +104,8 @@ export async function sendFormToCustomer(input: {
   phone?: string;
   email?: string;
   channels?: string[];
+  /** What the agent filled in for the customer (the fields a form marks `agencyFills`). */
+  prefill?: Record<string, string>;
 }): Promise<SendOutcome> {
   const who = await admin();
   if (!who) return NO_SESSION;
@@ -114,7 +116,7 @@ export async function sendFormToCustomer(input: {
   const to = cleanRecipient(input);
   if (!to.ok) return { ok: false, error: to.error };
   const origin = publicOrigin(await headers(), SITE.url);
-  return sendInvite({ form, kind, to: to.value, channels: cleanChannels(input.channels), agency: who, origin, page: "/admin/send" });
+  return sendInvite({ form, kind, to: to.value, channels: cleanChannels(input.channels), agency: who, origin, page: "/admin/send", prefill: cleanAgencyFill(form, input.prefill) });
 }
 
 /** Send a form the customer has not filled yet once more: a fresh link to the same file. */

@@ -7,7 +7,7 @@ import InviteResend from "@/components/InviteResend";
 import MslahtkSyncNotice from "@/components/MslahtkSyncNotice";
 import StatusChip from "@/components/StatusChip";
 import { CONTACT_FIELDS, CONTACT_FORM_SLUG } from "@/lib/contact-form";
-import { lastSendLine } from "@/lib/case-invite";
+import { lastSendLine, prefillOf } from "@/lib/case-invite";
 import { allFields, formAudience, formatBytes, getForm } from "@/lib/forms";
 import { whenHe } from "@/lib/format";
 import { loadCase, parentCaseId } from "@/lib/home-case";
@@ -80,6 +80,11 @@ export default async function SubmissionDetail({ params }: { params: Promise<{ l
   // A drawn signature is shown inside the form, beside its label, not as a document.
   const signatureFields = new Set(form ? allFields(form).filter((f) => f.type === "signature").map((f) => f.name) : []);
   const documents = sub.files.filter((f) => !signatureFields.has(f.fieldName));
+  // What the agency filled in when it sent the form (the vehicle number, the insurance company ...).
+  const filledIn =
+    form && sub.awaitingCustomer
+      ? Object.entries(prefillOf(sub, form)).map(([k, v]) => `${allFields(form).find((f) => f.name === k)?.label ?? k}: ${v}`)
+      : [];
 
   return (
     <main className="adm__main">
@@ -158,6 +163,7 @@ export default async function SubmissionDetail({ params }: { params: Promise<{ l
               : "הלקוח עדיין לא נרשם במסלחתק. התשובות ימולאו בפנייה הזו ברגע שיישלחו."}
           </p>
           {lastSendLine(sub) && <p className="adm__muted">{lastSendLine(sub)}</p>}
+          {filledIn.length > 0 && <p className="adm__muted">מולא מראש בטופס: {filledIn.join(" · ")}</p>}
           <InviteResend submissionId={sub.id} phone={sub.phone} email={sub.email} send={resendToCustomer} />
         </section>
       )}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CASES, FORMS, formAudience, identityField, publicForms } from "@/lib/forms";
+import { CASES, FORMS, agencyFillFields, formAudience, identityField, publicForms } from "@/lib/forms";
 import type { SendOutcome } from "@/lib/send-types";
 import { SITE } from "@/lib/site";
 import { SendReport } from "./SendControls";
@@ -15,6 +15,8 @@ export type SendFormAction = (input: {
   phone?: string;
   email?: string;
   channels?: string[];
+  /** What the agent filled in for the customer, by field name (only the fields a form marks `agencyFills`). */
+  prefill?: Record<string, string>;
 }) => Promise<SendOutcome>;
 
 /**
@@ -37,6 +39,9 @@ export default function FormLinks({ send }: { send?: SendFormAction }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, SendOutcome | undefined>>({});
+  // What the agent fills in for the customer before sending (form slug, then field name).
+  const [fills, setFills] = useState<Record<string, Record<string, string>>>({});
+  const setFill = (slug: string, field: string, value: string) => setFills((f) => ({ ...f, [slug]: { ...f[slug], [field]: value } }));
 
   // The site's own address for the first render (server and browser agree, so
   // hydration matches), then the host this page is really open on.
@@ -57,6 +62,7 @@ export default function FormLinks({ send }: { send?: SendFormAction }) {
     if (nameKey && name.trim()) q.set(nameKey, name.trim());
     if (phone.trim()) q.set("phone", phone.trim());
     if (email.trim()) q.set("email", email.trim());
+    for (const [field, value] of Object.entries(fills[slug] ?? {})) if (value.trim()) q.set(field, value.trim());
     const qs = q.toString();
     return `${origin}/forms/${slug}${qs ? `?${qs}` : ""}`;
   }
@@ -84,7 +90,7 @@ export default function FormLinks({ send }: { send?: SendFormAction }) {
     if (!send) return;
     setBusy(`${key}:${copyOnly ? "copy" : "send"}`);
     try {
-      const request = send({ slug, kind, name, phone, email, channels: copyOnly ? [] : channels });
+      const request = send({ slug, kind, name, phone, email, channels: copyOnly ? [] : channels, prefill: fills[slug] });
       // Safari and iOS take back the click's permission to use the clipboard
       // once anything is awaited, so the clipboard is handed the PROMISE of the
       // link now, not the link later. A browser that cannot do that copies after
@@ -107,6 +113,9 @@ export default function FormLinks({ send }: { send?: SendFormAction }) {
           : Promise.resolve(false);
       const out = await request;
       setResults((r) => ({ ...r, [key]: out }));
+      // They belong to the customer just sent to: cleared, so the next customer never gets them by accident.
+      // (Sending again to the same customer keeps what the first send carried.)
+      if (out.ok) setFills((f) => ({ ...f, [slug]: {} }));
       if (copyOnly && out.ok) {
         if (await promised) {
           setCopied(key);
@@ -122,12 +131,18 @@ export default function FormLinks({ send }: { send?: SendFormAction }) {
     }
   }
 
-  function Item({ id, eyebrow, title, slug, kind }: { id: string; eyebrow: string; title: string; slug: string; kind: "form" | "simulator" }) {
+  // A plain function, not a component: a component defined inside a component is
+  // a new type on every keystroke, which would remount the inputs below and drop
+  // the cursor.
+  function renderItem({ id, eyebrow, title, slug, kind }: { id: string; eyebrow: string; title: string; slug: string; kind: "form" | "simulator" }) {
     const path = kind === "simulator" ? (CASES.find((c) => c.request === slug)?.simulatorPath ?? `/forms/${slug}`) : `/forms/${slug}`;
     const plain = kind === "simulator" ? `${origin}${path}` : linkFor(slug);
     const result = results[id];
+    const form = kind === "form" ? FORMS.find((f) => f.slug === slug) : undefined;
+    const fillFields = form ? agencyFillFields(form) : [];
+    const mustAnswer = fillFields.filter((f) => f.required).map((f) => f.label);
     return (
-      <li className="flinks__item">
+      <li className={`flinks__item${fillFields.length ? " flinks__item--fills" : ""}`} key={id}>
         <div className="flinks__meta">
           <div className="crow__label">{eyebrow}</div>
           <div className="flinks__title">{title}</div>
@@ -135,6 +150,39 @@ export default function FormLinks({ send }: { send?: SendFormAction }) {
             {path}
           </code>
         </div>
+
+        {fillFields.length > 0 && (
+          <div className="flinks__fills">
+            <div className="flinks__fills-title">למלא מראש בטופס של הלקוח (לא חובה)</div>
+            <div className="flinks__fills-grid">
+              {fillFields.map((f) => {
+                const fid = `fl-${slug}-${f.name}`;
+                const value = fills[slug]?.[f.name] ?? "";
+                return (
+                  <div className="field" key={f.name}>
+                    <label htmlFor={fid}>{f.label}</label>
+                    {f.type === "select" ? (
+                      <select id={fid} value={value} onChange={(e) => setFill(slug, f.name, e.target.value)}>
+                        <option value="">לא נבחר</option>
+                        {f.options?.map((o) => (
+                          <option key={o} value={o}>
+                            {o}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input id={fid} value={value} onChange={(e) => setFill(slug, f.name, e.target.value)} dir="ltr" autoComplete="off" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <p className="flinks__fills-note">
+              הלקוח יראה אותם מלאים ויוכל לתקן.
+              {mustAnswer.length > 0 ? ` בטופס אצל הלקוח חובה למלא: ${mustAnswer.join(", ")}.` : ""}
+            </p>
+          </div>
+        )}
         <div className="flinks__actions">
           {send ? (
             <>
@@ -220,18 +268,15 @@ export default function FormLinks({ send }: { send?: SendFormAction }) {
 
       <ul className="flinks__list">
         {CASES.filter((c) => c.simulatorPath).map((c) => (
-          <Item
-            key={`sim-${c.key}`}
-            id={`sim-${c.key}`}
-            eyebrow={c.title}
-            title="מחשבון ביטוח דירה (הערכה ראשונית, ואז טופס הבקשה)"
-            slug={c.request}
-            kind="simulator"
-          />
+          renderItem({
+            id: `sim-${c.key}`,
+            eyebrow: c.title,
+            title: "מחשבון ביטוח דירה (הערכה ראשונית, ואז טופס הבקשה)",
+            slug: c.request,
+            kind: "simulator",
+          })
         ))}
-        {forms.map((f) => (
-          <Item key={f.slug} id={f.slug} eyebrow={f.eyebrow} title={f.title} slug={f.slug} kind="form" />
-        ))}
+        {forms.map((f) => renderItem({ id: f.slug, eyebrow: f.eyebrow, title: f.title, slug: f.slug, kind: "form" }))}
       </ul>
 
       {caseOnly.length > 0 && (
