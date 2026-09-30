@@ -22,6 +22,8 @@
 //   MSLAHTK_CONNECTION_SECRET (alias ADMIN_LINK_SECRET; launch tokens + webhooks, see lib/admin-auth.ts)
 //   MSLAHTK_DASHBOARD_URL     optional, where "open in Mslahtk" links point
 
+import { toE164 } from "./phone";
+
 export type MslahtkConfig = { api: string; projectId: string; serviceToken: string; dashboardUrl: string };
 
 export function mslahtkConfig(): MslahtkConfig {
@@ -200,7 +202,7 @@ export async function submitLead(input: LeadInput): Promise<LeadResult> {
 // Both helpers never throw: the record is already written here, so a CRM miss
 // is a log line and a note in the back-office, not a failed submission.
 
-export type LeadOpResult = { ok: true } | { ok: false; error: string; skipped?: boolean };
+export type LeadOpResult = { ok: true } | { ok: false; error: string; skipped?: boolean; status?: number };
 
 /** POST .../leads/:id/stage. `via` is what the Mslahtk timeline shows as the actor. */
 export async function setLeadStage(leadId: string, status: string, via: string): Promise<LeadOpResult> {
@@ -215,7 +217,7 @@ export async function setLeadStage(leadId: string, status: string, via: string):
     });
     if (!res.ok) {
       const json = (await res.json().catch(() => ({}))) as { message?: string };
-      return { ok: false, error: json.message || `Mslahtk responded ${res.status}` };
+      return { ok: false, error: json.message || `Mslahtk responded ${res.status}`, status: res.status };
     }
     return { ok: true };
   } catch (err) {
@@ -247,7 +249,7 @@ export async function notifyOwner(input: { title: string; body?: string; to?: st
     });
     if (!res.ok) {
       const json = (await res.json().catch(() => ({}))) as { message?: string };
-      return { ok: false, error: json.message || `Mslahtk responded ${res.status}` };
+      return { ok: false, error: json.message || `Mslahtk responded ${res.status}`, status: res.status };
     }
     return { ok: true };
   } catch (err) {
@@ -283,11 +285,78 @@ export async function updateLead(
     });
     if (!res.ok) {
       const json = (await res.json().catch(() => ({}))) as { message?: string };
-      return { ok: false, error: json.message || `Mslahtk responded ${res.status}` };
+      return { ok: false, error: json.message || `Mslahtk responded ${res.status}`, status: res.status };
     }
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** The API takes 50 keys per patch; a long form is written in batches of 40. */
+const PATCH_KEYS_PER_CALL = 40;
+
+/**
+ * Merge any number of `fields` onto a lead: updateLead in batches, so a form
+ * with more answers than one patch may carry still lands whole. Stops at the
+ * first batch Mslahtk refuses and says so.
+ */
+export async function updateLeadFields(leadId: string, fields: Record<string, string>): Promise<LeadOpResult> {
+  const entries = Object.entries(fields).filter(([, v]) => v !== undefined && v !== "");
+  if (!entries.length) return { ok: true };
+  for (let i = 0; i < entries.length; i += PATCH_KEYS_PER_CALL) {
+    const res = await updateLead(leadId, { fields: Object.fromEntries(entries.slice(i, i + PATCH_KEYS_PER_CALL)) });
+    if (!res.ok) return res;
+  }
+  return { ok: true };
+}
+
+// ── Talking to the customer through the business's own WhatsApp ────────────
+//
+// POST .../whatsapp/contacts/:phone/messages, scope `whatsapp:send`. Mslahtk
+// sends as the business's connected number, and only INSIDE an open 24h window
+// (the customer wrote to that number in the last day): an app cannot open a
+// conversation with a template, that decision stays with the owner. So this is
+// an attempt, and every way it can fail has a name the caller can act on.
+//
+//   not_configured   no Mslahtk connection at all
+//   no_permission    the site's token was never granted `whatsapp:send`
+//   window_closed    granted, but the customer has not written in the last 24h
+//                    (this is also what an unconnected WhatsApp number looks like)
+//   not_sent         Mslahtk answered but did not send (suppressed, refused)
+//   unreachable      network or timeout
+
+export type WhatsappReason = "not_configured" | "no_permission" | "window_closed" | "not_sent" | "unreachable";
+export type WhatsappSend = { ok: true } | { ok: false; reason: WhatsappReason; error: string };
+
+export async function sendWhatsappText(phone: string, text: string): Promise<WhatsappSend> {
+  const cfg = mslahtkConfig();
+  if (!mslahtkConfigured()) return { ok: false, reason: "not_configured", error: "Mslahtk is not configured" };
+  const to = toE164(phone);
+  if (!to) return { ok: false, reason: "not_sent", error: "invalid phone number" };
+  try {
+    const res = await fetch(
+      `${cfg.api}/service/sites/${encodeURIComponent(cfg.projectId)}/whatsapp/contacts/${encodeURIComponent(to)}/messages`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${cfg.serviceToken}` },
+        body: JSON.stringify({ kind: "text", text }),
+        signal: AbortSignal.timeout(12_000),
+      },
+    );
+    const json = (await res.json().catch(() => ({}))) as { status?: string; code?: string; message?: unknown };
+    if (res.ok) {
+      // A 200 is not a send: a suppressed or held message answers 200 too.
+      return json.status === "sent" ? { ok: true } : { ok: false, reason: "not_sent", error: `Mslahtk did not send it (${json.status ?? "no status"})` };
+    }
+    const message = typeof json.message === "string" ? json.message : JSON.stringify(json.message ?? "");
+    if (res.status === 403) {
+      const closed = json.code === "window_closed" || message.includes("window_closed");
+      return { ok: false, reason: closed ? "window_closed" : "no_permission", error: message || `Mslahtk responded ${res.status}` };
+    }
+    return { ok: false, reason: "not_sent", error: message || `Mslahtk responded ${res.status}` };
+  } catch (err) {
+    return { ok: false, reason: "unreachable", error: err instanceof Error ? err.message : String(err) };
   }
 }
 

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import ResendBuilder, { type ResendField } from "@/components/ResendBuilder";
 import { buildResendLink } from "../../actions";
-import { getForm, isFieldVisible } from "@/lib/forms";
+import { displayAnswer, getForm, isFieldVisible } from "@/lib/forms";
 import { answersOf, getSubmission } from "@/lib/submissions";
 import { requireAdmin } from "../../session";
 
@@ -32,7 +32,7 @@ export default async function ResendPage({ params }: { params: Promise<{ leadId:
         name: f.name,
         label: f.label,
         section: section.title || `חלק ${si + 1}`,
-        value: (answers[f.name] ?? "").trim(),
+        value: displayAnswer(f, (answers[f.name] ?? "").trim()),
       }))
       .filter((f) => f.value !== ""),
   );

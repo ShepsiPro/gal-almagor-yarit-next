@@ -28,6 +28,12 @@ export type Prefill = {
    * new, orphaned submission.
    */
   caseId?: string;
+  /**
+   * The row the agency opened when it SENT this form (Submission.awaitingCustomer).
+   * The customer's answers complete that row and its Mslahtk lead instead of
+   * opening a second pair, so the customer is on record from the send.
+   */
+  inviteId?: string;
 };
 
 const RECORD_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -62,7 +68,8 @@ export function verifyPrefillToken(token: string | undefined | null): Prefill | 
       (n: unknown) => typeof n === "string" && n in values,
     );
     const caseId = typeof obj.caseId === "string" && RECORD_ID.test(obj.caseId) ? obj.caseId : undefined;
-    return { slug: String(obj.slug), values, locked, fromLeadId: obj.fromLeadId ? String(obj.fromLeadId) : undefined, caseId };
+    const inviteId = typeof obj.inviteId === "string" && RECORD_ID.test(obj.inviteId) ? obj.inviteId : undefined;
+    return { slug: String(obj.slug), values, locked, fromLeadId: obj.fromLeadId ? String(obj.fromLeadId) : undefined, caseId, inviteId };
   } catch {
     return null;
   }

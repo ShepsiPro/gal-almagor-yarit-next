@@ -2544,3 +2544,54 @@ input.fform__file-input {
 .adm__send { padding: 18px 16px; }
 .adm__send .flinks { margin-top: 0; }
 @media (min-width: 900px) { .adm__send { padding: 24px 28px; } }
+
+/* ── Day-first date box (components/DateField.tsx) ────────────────────────────
+   Plain text so it reads dd/mm/yyyy in any browser region; the native calendar
+   sits behind a button and is never shown itself. */
+.fform__date { position: relative; }
+.field .fform__date input.fform__date-text { direction: ltr; text-align: right; padding-left: 46px; }
+.field .fform__date input.fform__date-native {
+  position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none;
+}
+.fform__date-btn {
+  position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
+  display: grid; place-items: center; width: 34px; height: 34px; padding: 0;
+  background: transparent; border: 0; border-radius: 4px; color: var(--muted); cursor: pointer;
+}
+.fform__date-btn:hover, .fform__date-btn:focus-visible { color: var(--accent); background: var(--surface); }
+.fform__cell--locked .fform__date-text { cursor: not-allowed; }
+
+/* ── Sending a form to the customer (components/SendControls.tsx, FormLinks) ── */
+.adm__status--stage-invited { background: #fef6e7; color: #93370d; }
+.flinks__prefill { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.flinks__channels { grid-column: 1 / -1; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.flinks__channels-label { font-size: 12px; font-weight: 700; color: var(--ink); letter-spacing: 0.06em; }
+.flinks__channels-note { font-size: 13px; color: var(--muted); }
+.flinks__result { flex-basis: 100%; display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+.sendch { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+.sendch__opt { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #344054; cursor: pointer; }
+.sendch__opt.is-off { color: #98a2b3; cursor: not-allowed; }
+.sendch__opt input { margin: 0; }
+.sendch__to { color: #667085; font-size: 12px; }
+.sendbox { display: grid; gap: 4px; }
+.sendrep { display: grid; gap: 8px; margin-top: 10px; font-size: 13px; color: #344054; line-height: 1.5; }
+.sendrep__line { margin: 0; }
+.sendrep__line--ok { color: #067647; font-weight: 700; }
+.sendrep__line--warn { color: #b54708; }
+.sendrep__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 8px; background: #f9fafb; border: 1px solid #eaecf0; }
+.sendrep__row--sent { background: #f6fef9; border-color: #a6f4c5; }
+.sendrep__row--prepared { background: #fffaeb; border-color: #fedf89; }
+.sendrep__what { flex: 1 1 200px; min-width: 0; }
+.sendrep__link { display: grid; gap: 6px; justify-items: start; }
+.sendrep__link .adm__linkout { margin: 0; }
+@media (max-width: 768px) {
+  .flinks__prefill { grid-template-columns: 1fr; }
+}
+.map-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.flinks__notice {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  margin-top: 28px; padding: 16px 20px; border: 1px solid var(--line); border-right: 4px solid var(--accent);
+  border-radius: 8px; background: #fff; font-size: 14px; line-height: 1.7;
+}
+.flinks__notice p { margin: 0; flex: 1 1 320px; }
+.flinks__notice + .flinks { margin-top: 16px; }

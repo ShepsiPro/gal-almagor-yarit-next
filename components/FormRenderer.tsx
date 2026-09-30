@@ -14,7 +14,9 @@ import {
   type FormDef,
   type FormField,
 } from "@/lib/forms";
+import { isValidIsoDate } from "@/lib/dates";
 import { SITE, TEL_HREF, WA_HREF } from "@/lib/site";
+import DateField from "./DateField";
 import SignaturePad from "./SignaturePad";
 
 type Values = Record<string, string | string[]>;
@@ -198,6 +200,7 @@ export default function FormRenderer({
         continue;
       }
       if (!value) continue;
+      if (f.type === "date" && !isValidIsoDate(value)) next[f.name] = "תאריך לא תקין. יש להזין יום/חודש/שנה, למשל 30/09/2026";
       if (f.type === "id" && !isValidIsraeliId(value)) next[f.name] = "מספר תעודת זהות אינו תקין";
       if (f.type === "email" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value))
         next[f.name] = "כתובת דוא״ל אינה תקינה";
@@ -575,6 +578,21 @@ function Field({
             );
           })}
         </div>
+        {help}
+        {err}
+      </div>
+    );
+  }
+
+  if (field.type === "date") {
+    return (
+      <div className={cell} data-field={field.name}>
+        <label htmlFor={id}>
+          {field.label}
+          {field.required && !locked && <span className="fform__req" aria-hidden="true">*</span>}
+          {locked && <span className="fform__lock">מולא על ידי הסוכנות</span>}
+        </label>
+        <DateField id={id} value={text} onChange={(v) => onValue(field.name, v)} readOnly={locked} invalid={Boolean(error)} describedBy={describedBy} />
         {help}
         {err}
       </div>

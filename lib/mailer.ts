@@ -164,3 +164,80 @@ export function renderEmail(opts: {
 
   return { html, text };
 }
+
+// ── Mail to the CUSTOMER (the form the agency sends them) ────────────────────
+//
+// Everything above mails the agency about what a customer filed. This is the
+// other direction: the agency's own mailbox writing to the customer, from the
+// back-office's "send" button.
+//
+//   smtp     SMTP is configured and can log in: the mail is really sent.
+//   preview  local development with no SMTP at all: printed, like every other
+//            mail here, so the whole flow is testable without credentials.
+//   off      production without a working login (SMTP_HOST set, SMTP_PASS not:
+//            the state the live site is in until the mailbox password is set).
+//            Nothing is attempted, and the agent gets a mailto: instead.
+
+export type CustomerMailMode = "smtp" | "preview" | "off";
+
+export function customerMailMode(): CustomerMailMode {
+  const host = process.env.SMTP_HOST;
+  if (host) {
+    // A user without a password fails every send; do not even try.
+    return process.env.SMTP_USER && !process.env.SMTP_PASS ? "off" : "smtp";
+  }
+  return process.env.NODE_ENV === "production" ? "off" : "preview";
+}
+
+export async function sendCustomerMail(opts: { to: string; subject: string; html: string; text: string }): Promise<"sent" | "previewed"> {
+  const mode = customerMailMode();
+  if (mode === "off") throw new Error("mail is not configured");
+  // The display name is the agency's, not the internal "site forms" label the
+  // mailbox notifications carry.
+  const from = process.env.CUSTOMER_MAIL_FROM || `"${SITE.brand}" <${process.env.SMTP_USER || SITE.email}>`;
+  const replyTo = process.env.MAIL_TO || SITE.email;
+  if (mode === "preview") {
+    console.log(["", "──────── MAIL PREVIEW (to the customer, SMTP not configured) ────────", `to:      ${opts.to}`, `from:    ${from}`, `replyTo: ${replyTo}`, `subject: ${opts.subject}`, "", opts.text, "────────────────────────────────────────────────────────────────", ""].join("\n"));
+    return "previewed";
+  }
+  await transporter().sendMail({ to: opts.to, from, replyTo, subject: opts.subject, text: opts.text, html: opts.html });
+  return "sent";
+}
+
+/** A short RTL note with one big button, in the same plain table layout as the agency notifications. */
+export function renderCustomerEmail(opts: {
+  heading: string;
+  greeting: string;
+  lines: string[];
+  ctaLabel: string;
+  link: string;
+}): { html: string; text: string } {
+  const { heading, greeting, lines, ctaLabel, link } = opts;
+  const paragraphs = lines.map((l) => `<p style="margin:0 0 14px;color:#1E4164;font-size:15px;line-height:1.7;">${escapeHtml(l)}</p>`).join("");
+  const html = `<!doctype html>
+<html lang="he" dir="rtl">
+  <body style="margin:0;padding:24px;background:#F4F8FB;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #DDE6EE;border-radius:6px;">
+      <tr>
+        <td style="background:#1E4164;padding:22px 28px;border-radius:6px 6px 0 0;">
+          <div style="color:#C6E3EE;font-size:11px;letter-spacing:.14em;">${escapeHtml(SITE.brand)}</div>
+          <div style="color:#ffffff;font-size:21px;font-weight:bold;padding-top:6px;">${escapeHtml(heading)}</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:24px 28px 28px;">
+          <p style="margin:0 0 14px;color:#1E4164;font-size:16px;font-weight:bold;">${escapeHtml(greeting)}</p>
+          ${paragraphs}
+          <p style="margin:22px 0;">
+            <a href="${escapeHtml(link)}" style="display:inline-block;background:#1E4164;color:#ffffff;text-decoration:none;font-size:16px;padding:14px 26px;border-radius:4px;">${escapeHtml(ctaLabel)}</a>
+          </p>
+          <p style="margin:0;color:#5C7390;font-size:12px;line-height:1.6;">אם הכפתור לא נפתח, אפשר להעתיק את הקישור לדפדפן:<br><span dir="ltr" style="word-break:break-all;">${escapeHtml(link)}</span></p>
+          <p style="margin:18px 0 0;color:#5C7390;font-size:12px;line-height:1.6;">${escapeHtml(SITE.brand)} · ${escapeHtml(SITE.phoneDisplay)} · ${escapeHtml(SITE.email)}</p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+  const text = [greeting, "", ...lines, "", `${ctaLabel}:`, link, "", `${SITE.brand} · ${SITE.phoneDisplay} · ${SITE.email}`].join("\n");
+  return { html, text };
+}

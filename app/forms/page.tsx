@@ -20,6 +20,15 @@ export default function FormsIndexPage() {
             בחרו טופס ושלחו את הקישור ללקוח. אפשר למלא מראש שם וטלפון כדי שהלקוח
             יקבל טופס מותאם. הטופס המלא חוזר אלינו למייל, כולל הקבצים המצורפים.
           </p>
+          <aside className="flinks__notice">
+            <p>
+              <strong>הכלי הזה לא רושם את הלקוח במסלחתק.</strong> כדי שהלקוח יירשם ברגע השליחה, ושהטופס יישלח לו
+              לווטסאפ או למייל שלו, שלחו מתוך ניהול הטפסים.
+            </p>
+            <a className="map-btn map-btn--primary" href="/admin/send">
+              שליחה מניהול הטפסים
+            </a>
+          </aside>
           <FormLinks />
         </div>
       </main>

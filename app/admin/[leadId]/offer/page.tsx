@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import AnsweredForm from "@/components/AnsweredForm";
 import FormRenderer from "@/components/FormRenderer";
 import { getForm } from "@/lib/forms";
@@ -24,6 +24,8 @@ export default async function OfferPage({ params }: { params: Promise<{ leadId: 
 
   const file = await loadCase(leadId);
   if (!file) notFound();
+  // Form 1 was sent and not filled yet: there is no request to build an offer from.
+  if (file.stage === "invited") redirect(`/admin/${file.request.id}`);
   const requestForm = getForm(file.request.formSlug);
   const offerForm = getForm(file.def.offer);
   if (!requestForm || !offerForm) notFound();

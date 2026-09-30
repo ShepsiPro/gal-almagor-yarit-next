@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { dmyHm } from "@/lib/dates";
 import { getForm } from "@/lib/forms";
 import { caseOpenedBy, caseStageOf, stageLabel } from "@/lib/home-case";
 import AdminIcon from "@/components/AdminIcon";
@@ -15,7 +16,7 @@ const PAGE = 50;
 const TZ = "Asia/Jerusalem";
 const dayKey = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: TZ });
 
-/** Short and relative: "היום 18:39", "אתמול 09:05", "22.09 18:39", and the year only when it is not this one. */
+/** Relative for today and yesterday ("היום 18:39"), otherwise the full day-first date ("22/09/2026 18:39"). */
 function whenHe(value: Date | string): string {
   const d = new Date(value);
   const time = d.toLocaleTimeString("he-IL", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
@@ -23,9 +24,7 @@ function whenHe(value: Date | string): string {
   const yesterday = new Date(now.getTime() - 24 * 3600_000);
   if (dayKey(d) === dayKey(now)) return `היום ${time}`;
   if (dayKey(d) === dayKey(yesterday)) return `אתמול ${time}`;
-  const sameYear = d.toLocaleDateString("en-CA", { timeZone: TZ, year: "numeric" }) === now.toLocaleDateString("en-CA", { timeZone: TZ, year: "numeric" });
-  const date = d.toLocaleDateString("he-IL", { timeZone: TZ, day: "2-digit", month: "2-digit", ...(sameYear ? {} : { year: "numeric" }) });
-  return `${date} ${time}`;
+  return dmyHm(d);
 }
 
 export default async function AdminHome({
@@ -66,9 +65,9 @@ export default async function AdminHome({
     <main className="adm__main adm__main--wide">
       <div className="adm__head">
         <div>
-          <h1 className="adm__title">פניות שהתקבלו</h1>
+          <h1 className="adm__title">פניות וטפסים שנשלחו</h1>
           <p className="adm__muted">
-            {page.total === 1 ? "פנייה אחת" : `${page.total} פניות`}. כל פנייה נשמרת כאן וגם במסלחתק.
+            {page.total === 1 ? "פנייה אחת" : `${page.total} פניות`}. כל פנייה, וכל טופס שנשלח ללקוח, נשמרים כאן וגם במסלחתק.
           </p>
         </div>
       </div>
@@ -86,7 +85,7 @@ export default async function AdminHome({
         <div className="adm__card adm__empty">
           <AdminIcon name="inbox" size={28} />
           <p className="adm__empty-title">עדיין לא התקבלו פניות</p>
-          <p className="adm__muted">פנייה מהאתר או טופס שנשלח ללקוח יופיעו כאן ברגע שימולאו.</p>
+          <p className="adm__muted">פנייה מהאתר תופיע כאן ברגע שתתקבל, וטופס שתשלחו ללקוח יופיע כאן כבר מרגע השליחה.</p>
           <Link className="adm__btn adm__btn--primary adm__btn--icon" href="/admin/send">
             <AdminIcon name="send" />
             שליחת טופס ללקוח
@@ -98,7 +97,7 @@ export default async function AdminHome({
             <span>לקוח</span>
             <span>טופס</span>
             <span>סטטוס במסלחתק</span>
-            <span>התקבל</span>
+            <span>מתי</span>
             <span />
           </div>
           <ul className="adm__list">
@@ -106,7 +105,7 @@ export default async function AdminHome({
               const form = getForm(sub.formSlug);
               // A request row wears its case's stage.
               const caseDef = caseOpenedBy(form);
-              const caseStage = caseDef ? caseStageOf(caseDef, sub.children) : null;
+              const caseStage = caseDef ? caseStageOf(caseDef, sub.children, sub.awaitingCustomer) : null;
               const stageKey = caseStage ? (caseStage.stage === "answered" ? caseStage.decision ?? "answered" : caseStage.stage) : null;
               return (
                 <li key={sub.id} className="adm__row">
@@ -122,6 +121,7 @@ export default async function AdminHome({
                     <span className="adm__cell adm__cell--form">
                       <span>{form?.title || sub.formTitle}</span>
                       {caseStage && <span className={`adm__status adm__status--stage-${stageKey}`}>{stageLabel(caseStage.stage, caseStage.decision)}</span>}
+                      {!caseStage && sub.awaitingCustomer && <span className="adm__status adm__status--stage-invited">נשלח, ממתין למילוי</span>}
                     </span>
                     <span className="adm__cell adm__cell--status">
                       <StatusChip leadId={sub.mslahtkLeadId} status={sub.mslahtkStatus} />

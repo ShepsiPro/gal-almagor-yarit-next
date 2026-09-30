@@ -41,7 +41,7 @@ function jewelryModeOf(i: HomeQuoteInput): JewelryMode {
  * The customer-facing face of lib/home-quote.ts. Every change re-prices on the
  * spot; the "continue" button carries the whole state into the request form.
  */
-export default function HomeQuoteSimulator({ initial }: { initial: HomeQuoteInput | null }) {
+export default function HomeQuoteSimulator({ initial, inviteToken }: { initial: HomeQuoteInput | null; inviteToken?: string }) {
   const start = initial ?? DEFAULT_INPUT;
   const [inp, setInp] = useState<HomeQuoteInput>(start);
   const [kind, setKind] = useState<Kind>(() => kindOf(start));
@@ -56,7 +56,10 @@ export default function HomeQuoteSimulator({ initial }: { initial: HomeQuoteInpu
   const [showLines, setShowLines] = useState(false);
 
   const result = useMemo(() => computeHomeQuote(inp), [inp]);
-  const continueHref = useMemo(() => `/forms/home-request?sim=${encodeURIComponent(encodeSnapshot(inp))}`, [inp]);
+  const continueHref = useMemo(
+    () => `/forms/home-request?sim=${encodeURIComponent(encodeSnapshot(inp))}${inviteToken ? `&p=${encodeURIComponent(inviteToken)}` : ""}`,
+    [inp, inviteToken],
+  );
 
   function set<K extends keyof HomeQuoteInput>(key: K, value: HomeQuoteInput[K]) {
     setInp((s) => ({ ...s, [key]: value }));

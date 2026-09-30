@@ -13,9 +13,16 @@
 //
 // Two doors lead here: /api/forms/<slug> (the public one, customer forms only)
 // and /admin/forms/<slug> (under the admin session cookie, for agency forms).
+//
+// A form the agency SENT from the back-office already has its row and its
+// Mslahtk lead (lib/case-invite.ts); the customer's answers then COMPLETE that
+// row and fill in that lead instead of opening a second pair.
 
 import { NextResponse } from "next/server";
+import type { Submission } from "@prisma/client";
 import type { AdminIdentity } from "./admin-auth";
+import { completeInvite, fillLeadFromRow, loadInvite } from "./case-invite";
+import { dmyHm, isValidIsoDate } from "./dates";
 import { db } from "./db";
 import {
   ACCEPTED_MIME,
@@ -24,7 +31,9 @@ import {
   MAX_FILES_PER_FIELD,
   SIGNATURE_MAX_BYTES,
   allFields,
+  answersForReading,
   conflictingOptions,
+  displayAnswer,
   formAudience,
   formatBytes,
   getForm,
@@ -146,6 +155,8 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
     resentFromRef = sent.fromLeadId;
     for (const name of sent.locked) answered[name] = sent.values[name];
   }
+  // The unanswered row the agency opened when it sent this link, if this is one.
+  const invite = tokenOk && !isAgency && formAudience(form) === "customer" ? await loadInvite(sent?.inviteId, slug) : null;
 
   for (const field of allFields(form)) {
     if (field.type === "statement") continue;
@@ -225,6 +236,9 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
     if (field.type === "id" && !isValidIsraeliId(value)) {
       return bad(`מספר תעודת הזהות בשדה "${field.label}" אינו תקין`);
     }
+    if (field.type === "date" && !isValidIsoDate(value)) {
+      return bad(`התאריך בשדה "${field.label}" אינו תקין. יש להזין יום/חודש/שנה, למשל 30/09/2026`);
+    }
     if (field.type === "email" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
       return bad(`כתובת הדוא״ל בשדה "${field.label}" אינה תקינה`);
     }
@@ -251,10 +265,10 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
     if (field.type === "tel" && !customerPhone) customerPhone = value;
     if (field.identity === "name" && !customerName) customerName = value;
     answers[field.name] = value;
-    rows.push({ label: field.label, value });
+    rows.push({ label: field.label, value: displayAnswer(field, value) });
   }
 
-  const submitted = new Date().toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" });
+  const submitted = dmyHm(new Date());
   rows.push({ label: "התקבל בתאריך", value: submitted });
 
   // ── The case this belongs to ──────────────────────────────────────────────
@@ -262,12 +276,12 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
   // page, under the admin session); an answer carries it inside the signed
   // token. Either way the parent must exist and must be THAT case's request.
   const childCase = caseOfChildForm(form);
-  let parent: { id: string; mslahtkLeadId: string | null; phone: string | null; email: string | null; name: string | null } | null = null;
+  let parent: { id: string; mslahtkLeadId: string | null; phone: string | null; email: string | null; name: string | null; awaitingCustomer: boolean } | null = null;
   if (childCase) {
     const ref = isAgency ? String(data.get("_parent") ?? "").trim() : (sent?.caseId ?? "");
     if (ref && /^[A-Za-z0-9_-]{1,64}$/.test(ref)) {
       const row = await db.submission
-        .findUnique({ where: { id: ref }, select: { id: true, formSlug: true, mslahtkLeadId: true, phone: true, email: true, name: true } })
+        .findUnique({ where: { id: ref }, select: { id: true, formSlug: true, mslahtkLeadId: true, phone: true, email: true, name: true, awaitingCustomer: true } })
         .catch(() => null);
       if (row && row.formSlug === childCase.request) parent = row;
     }
@@ -275,6 +289,7 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
     // customer's signed answer is kept regardless: it is their decision, and
     // the back-office can attach it by hand.
     if (!parent && isAgency) return bad("התיק שההצעה שייכת אליו לא נמצא");
+    if (parent?.awaitingCustomer && isAgency) return bad("הלקוח טרם מילא את טופס 1, ולכן אי אפשר להכין הצעה");
     if (parent) rows.push({ label: "תיק", value: parent.id });
   }
 
@@ -309,29 +324,45 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
     answers._resentFrom = prev?.id ?? resentFromRef;
   }
 
-  // 1. The record.
+  // 1. The record. An invited row is COMPLETED; anything else opens a new one.
   let submission: { id: string } | null = null;
+  let completed: Submission | null = null;
+  const arrival = {
+    page: opts.page,
+    referrer: req.headers.get("referer") ?? undefined,
+    ip,
+    userAgent: req.headers.get("user-agent") ?? undefined,
+  };
   try {
-    submission = await createSubmission({
-      formSlug: form.slug,
-      formTitle: form.title,
-      name: customerName || parent?.name || undefined,
-      // A case's children carry the request's contact details so the list and
-      // the WhatsApp buttons work from any row of the file.
-      phone: customerPhone || parent?.phone || undefined,
-      email: replyTo || parent?.email || undefined,
-      answers,
-      source: {
-        page: opts.page,
-        referrer: req.headers.get("referer") ?? undefined,
-        ip,
-        userAgent: req.headers.get("user-agent") ?? undefined,
-        ...(isAgency ? { agency: opts.agency?.email || opts.agency?.sub } : {}),
-        ...(resentFromRef && !resentFromId ? { resentFromRef } : {}),
-      },
-      resentFromId,
-      parentId: parent?.id ?? null,
-    });
+    if (invite) {
+      completed = await completeInvite(invite, {
+        name: customerName || undefined,
+        phone: customerPhone || undefined,
+        email: replyTo || undefined,
+        answers,
+        arrival,
+      });
+      submission = completed;
+    }
+    if (!submission) {
+      submission = await createSubmission({
+        formSlug: form.slug,
+        formTitle: form.title,
+        name: customerName || parent?.name || undefined,
+        // A case's children carry the request's contact details so the list and
+        // the WhatsApp buttons work from any row of the file.
+        phone: customerPhone || parent?.phone || undefined,
+        email: replyTo || parent?.email || undefined,
+        answers,
+        source: {
+          ...arrival,
+          ...(isAgency ? { agency: opts.agency?.email || opts.agency?.sub } : {}),
+          ...(resentFromRef && !resentFromId ? { resentFromRef } : {}),
+        },
+        resentFromId,
+        parentId: parent?.id ?? null,
+      });
+    }
   } catch (err) {
     console.error("[forms] database write failed", { slug, error: err instanceof Error ? err.message : String(err) });
   }
@@ -350,6 +381,18 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
       });
     }
   }
+
+  // The owner hears an invited customer filled the form (below). It waits on
+  // Mslahtk like the CRM work does and depends on nothing in it, so it starts now.
+  const toldOwner =
+    completed && submission
+      ? notifyOwner({
+          title: "הלקוח מילא את הטופס",
+          body: `${customerName || completed.name || "לקוח"}: ${form.title}`,
+          to: `/admin/${submission.id}`,
+          leadId: completed.mslahtkLeadId || undefined,
+        })
+      : null;
 
   // 3. The CRM.
   let leadOk = false;
@@ -380,6 +423,19 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
       }
     }
     rows.push({ label: "כרטיס לקוח", value: dashboardLeadUrl(leadId) });
+  } else if (completed && role !== "offer" && role !== "answer") {
+    // The customer was registered when the agency SENT this form. Their answers
+    // now fill in that same lead (or a fresh one when it is gone, or was never
+    // created): a second card for the same customer would split them in two.
+    const filled = await fillLeadFromRow(completed, opts.page);
+    leadOk = filled.ok;
+    leadSkipped = Boolean(!filled.ok && filled.skipped);
+    if (filled.ok) {
+      rows.push({ label: "כרטיס לקוח", value: dashboardLeadUrl(filled.leadId) });
+    } else if (!filled.skipped) {
+      console.error("[forms] mslahtk fill-in failed", { slug, error: filled.error });
+      rows.push({ label: "כרטיס לקוח", value: `לא עודכן: ${filled.error}` });
+    }
   } else if (role !== "offer") {
     // A customer form files a lead. (An answer whose case has no lead falls
     // through to here too, so the decision is never lost in the CRM.)
@@ -388,7 +444,7 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
       phone: customerPhone || parent?.phone || undefined,
       email: replyTo || parent?.email || undefined,
       message: `טופס: ${form.title}`,
-      fields: submission ? { ...answers, _submissionId: submission.id } : answers,
+      fields: submission ? { ...answersForReading(form, answers), _submissionId: submission.id } : answersForReading(form, answers),
       ctaId: `form_${form.slug}`,
       ctaLabel: form.title,
       category: `form:${form.slug}`,
@@ -402,7 +458,7 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
         .update({
           where: { id: submissionId },
           data: lead.ok
-            ? { mslahtkLeadId: lead.leadId, mslahtkStatus: "new", mslahtkSyncedAt: new Date() }
+            ? { mslahtkLeadId: lead.leadId, mslahtkStatus: "new", mslahtkError: null, mslahtkSyncedAt: new Date() }
             : { mslahtkError: lead.skipped ? null : lead.error },
         })
         .catch((err) => console.error("[forms] could not record the lead link", { submissionId, error: err instanceof Error ? err.message : String(err) }));
@@ -427,6 +483,15 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
       to: `/admin/${parent.id}`,
       leadId: parent.mslahtkLeadId || undefined,
     });
+    if (!told.ok && !told.skipped) console.error("[forms] owner notify failed", { slug, error: told.error });
+  }
+
+  // 3c. The customer filled a form the agency SENT: the one thing the agency is
+  // waiting for and cannot see happen. (A customer who arrives unasked already
+  // produces Mslahtk's own "new lead" alert; this one's lead was created at the
+  // send, so without this nothing would tell the owner.) Never blocks the submit.
+  if (toldOwner) {
+    const told = await toldOwner;
     if (!told.ok && !told.skipped) console.error("[forms] owner notify failed", { slug, error: told.error });
   }
 
