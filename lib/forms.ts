@@ -64,6 +64,13 @@ export type FormField = {
   identity?: "name";
   /** May be pre-filled from a plain ?query= parameter on the form's link. */
   prefillable?: boolean;
+  /**
+   * The agency may fill this in when it SENDS the form: the send tool asks for
+   * it beside the customer's details, and the customer opens the form with it
+   * already filled (and can still correct it). It changes nothing about what
+   * the customer must answer: `required` still says that.
+   */
+  agencyFills?: boolean;
   /** number: bounds, validated on both sides. */
   min?: number;
   max?: number;
@@ -558,6 +565,11 @@ export const FORMS: readonly FormDef[] = [
   // Optional because the owner asked for it: every field of section 7 (the car
   // and the garage) and the third party's name. The third party's vehicle number
   // stays required, as in the draft.
+  //
+  // The insured vehicle's number, the insurance company and the policy number
+  // are what the agency already knows, so the send tool lets it fill them in
+  // before the link goes out (`agencyFills`). For the customer only the vehicle
+  // number is required; the company and the policy number are optional.
   {
     slug: "claim",
     eyebrow: "הודעה על תאונה",
@@ -574,7 +586,9 @@ export const FORMS: readonly FormDef[] = [
           { name: "fullName", label: "שם המבוטח", type: "text", required: true, half: true, identity: "name", prefillable: true },
           { name: "idNumber", label: "תעודת זהות המבוטח", type: "id", required: true, half: true },
           { name: "phone", label: "מספר טלפון", type: "tel", required: true, half: true, prefillable: true },
-          { name: "vehicleNumber", label: "מספר הרכב המבוטח", type: "text", required: true, half: true },
+          { name: "vehicleNumber", label: "מספר הרכב המבוטח", type: "text", required: true, half: true, prefillable: true, agencyFills: true },
+          { name: "insurer", label: "חברת ביטוח", type: "select", options: INSURERS, half: true, prefillable: true, agencyFills: true },
+          { name: "policyNumber", label: "מספר פוליסה", type: "text", half: true, prefillable: true, agencyFills: true },
           { name: "accidentDate", label: "תאריך התאונה", type: "date", required: true, half: true },
           { name: "accidentTime", label: "שעת התאונה", type: "time", required: true, half: true },
           { name: "accidentPlace", label: "מקום התאונה", type: "text", required: true },
@@ -1285,6 +1299,32 @@ export function allFields(form: FormDef): FormField[] {
 /** The field holding the customer's own name, by meaning rather than spelling. */
 export function identityField(form: FormDef, of: "name"): FormField | undefined {
   return allFields(form).find((f) => f.identity === of);
+}
+
+/** The fields the agency may fill in when it sends this form (see FormField.agencyFills). */
+export function agencyFillFields(form: FormDef): FormField[] {
+  return allFields(form).filter((f) => f.agencyFills);
+}
+
+/**
+ * What the agent typed for those fields, made safe to put in a link and on a
+ * row: only fields the form offers for it, text trimmed and capped, a choice
+ * kept only when it is one of the options, empties dropped. Anything else in
+ * the input is ignored.
+ */
+export function cleanAgencyFill(form: FormDef, input: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!input || typeof input !== "object" || Array.isArray(input)) return out;
+  const given = input as Record<string, unknown>;
+  for (const f of agencyFillFields(form)) {
+    const raw = given[f.name];
+    if (typeof raw !== "string") continue;
+    const value = raw.trim().slice(0, 120);
+    if (!value) continue;
+    if (f.type === "select" && !(f.options ?? []).includes(value)) continue;
+    out[f.name] = value;
+  }
+  return out;
 }
 
 /** The field names a plain `?name=value` link is allowed to pre-fill. */
