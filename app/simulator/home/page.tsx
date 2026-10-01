@@ -3,12 +3,16 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import HomeQuoteSimulator from "@/components/HomeQuoteSimulator";
+import { getCase } from "@/lib/forms";
 import { decodeSnapshot } from "@/lib/home-quote";
 import { verifyPrefillToken } from "@/lib/prefill";
 import { SITE } from "@/lib/site";
 
+// What the calculator is called, here and wherever the agency sends it.
+const NAME = getCase("home")?.simulatorTitle ?? "מחשבון ביטוח דירה";
+
 export const metadata: Metadata = {
-  title: `מחשבון ביטוח דירה · ${SITE.brand}`,
+  title: `${NAME} · ${SITE.brand}`,
   description:
     "הערכה ראשונית לעלות ביטוח הדירה שלכם תוך דקה: מבנה, תכולה, רעידת אדמה, נזקי מים והרחבות. ללא התחייבות, ובלי למסור פרטים.",
   alternates: { canonical: "/simulator/home" },
@@ -38,10 +42,10 @@ export default async function HomeSimulatorPage({
             <span className="info-crumbs__sep">/</span>
             <Link href="/insurance/home">ביטוח דירה</Link>
             <span className="info-crumbs__sep">/</span>
-            <span className="info-crumbs__current">מחשבון</span>
+            <span className="info-crumbs__current">{NAME}</span>
           </nav>
           <div className="eyebrow">ביטוח דירה</div>
-          <h1 className="fpage__title">מחשבון ביטוח דירה</h1>
+          <h1 className="fpage__title">{NAME}</h1>
           <p className="fpage__intro">
             כמה עולה לבטח את הדירה? מלאו את הפרטים הבסיסיים וקבלו הערכה ראשונית מיד, בלי למסור פרטים אישיים. מעוניינים
             בהצעה מסודרת? בסוף המחשבון עוברים לטופס בקשה קצר, והפרטים שכבר מילאתם עוברים איתכם.

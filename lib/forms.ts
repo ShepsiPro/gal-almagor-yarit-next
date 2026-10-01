@@ -139,10 +139,12 @@ export type CaseDef = {
   answer: string;
   /** Where the customer starts, if the case has a calculator. */
   simulatorPath?: string;
+  /** What that calculator is called: on its page, and wherever the agency sends it. */
+  simulatorTitle?: string;
 };
 
 export const CASES: readonly CaseDef[] = [
-  { key: "home", title: "תיק ביטוח דירה", request: "home-request", offer: "home-offer", answer: "home-answer", simulatorPath: "/simulator/home" },
+  { key: "home", title: "תיק ביטוח דירה", request: "home-request", offer: "home-offer", answer: "home-answer", simulatorPath: "/simulator/home", simulatorTitle: "פנייה להצעת ביטוח לדירת מגורים ועלות ביטוח" },
 ];
 
 export function getCase(key: string | undefined | null): CaseDef | undefined {
@@ -167,6 +169,10 @@ const INSURERS = [
 const FLOORED_TYPES = ["דירה בבית משותף", "אחר"] as const;
 
 const YES_NO = ["כן", "לא"] as const;
+
+// Section 5 of the accident notice: answering yes opens the same details as
+// section 4, for the additional involved party.
+const EXTRA_PARTY = { field: "extraVehicles", equals: "כן" } as const;
 const YES_NO_NEG = ["לא", "כן"] as const;
 
 const HISTORY_TYPES = ["יש מקיף", "יש צד ג'", "אין"] as const;
@@ -578,7 +584,7 @@ export const FORMS: readonly FormDef[] = [
     submitLabel: "שליחת הודעה על תאונה",
     successTitle: "ההודעה על התאונה נשלחה",
     successBody:
-      "ההודעה התקבלה אצלנו. נבדוק את הפרטים ונעדכן אתכם בהמשך הטיפול. את התמונות, המסמכים וההקלטה הקולית אפשר לשלוח לנו בווטסאפ.",
+      "ההודעה התקבלה אצלנו. נבדוק את הפרטים ונעדכן אתכם בהמשך הטיפול. הקלטה קולית או קבצים נוספים אפשר לשלוח לנו בווטסאפ.",
     sections: [
       {
         title: "פרטים כלליים על התאונה",
@@ -590,7 +596,7 @@ export const FORMS: readonly FormDef[] = [
           { name: "insurer", label: "חברת ביטוח", type: "select", options: INSURERS, half: true, prefillable: true, agencyFills: true },
           { name: "policyNumber", label: "מספר פוליסה", type: "text", half: true, prefillable: true, agencyFills: true },
           { name: "accidentDate", label: "תאריך התאונה", type: "date", required: true, half: true },
-          { name: "accidentTime", label: "שעת התאונה", type: "time", required: true, half: true },
+          { name: "accidentTime", label: "שעת התאונה", type: "time", half: true },
           { name: "accidentPlace", label: "מקום התאונה", type: "text", required: true },
           { name: "police", label: "האם הייתה התערבות משטרה?", type: "radio", options: YES_NO, required: true },
           {
@@ -657,14 +663,18 @@ export const FORMS: readonly FormDef[] = [
         title: "רכבים נוספים",
         fields: [
           { name: "extraVehicles", label: "האם היו רכבים נוספים מעורבים בתאונה?", type: "radio", options: YES_NO, required: true },
-          {
-            name: "extraVehicleDetails",
-            label: "פרטי הרכב/ים הנוספים",
-            type: "textarea",
-            required: true,
-            placeholder: "נא לציין מספר רכב, שם בעל הרכב/הנהג וטלפון ככל שידוע",
-            showWhen: { field: "extraVehicles", equals: "כן" },
-          },
+          // As in section 4 the other side's papers are copied at the scene, so
+          // the IDs are kept as typed, and the vehicle number is the one detail asked for.
+          { name: "extra_party_title", label: "פרטי המעורב הנוסף", type: "statement", showWhen: EXTRA_PARTY },
+          { name: "extraOwner", label: "שם בעל הרכב", type: "text", half: true, showWhen: EXTRA_PARTY },
+          { name: "extraOwnerId", label: "תעודת זהות בעל הרכב", type: "text", half: true, showWhen: EXTRA_PARTY },
+          { name: "extraDriver", label: "שם הנהג", type: "text", half: true, showWhen: EXTRA_PARTY },
+          { name: "extraDriverId", label: "תעודת זהות הנהג", type: "text", half: true, showWhen: EXTRA_PARTY },
+          { name: "extraPhone", label: "מספר טלפון", type: "tel", half: true, showWhen: EXTRA_PARTY },
+          { name: "extraVehicle", label: "מספר הרכב", type: "text", required: true, half: true, showWhen: EXTRA_PARTY },
+          { name: "extraVehicleType", label: "סוג הרכב", type: "text", half: true, showWhen: EXTRA_PARTY },
+          { name: "extraInsurer", label: "חברת הביטוח", type: "text", half: true, showWhen: EXTRA_PARTY },
+          { name: "extraPolicy", label: "מספר פוליסה, אם ידוע", type: "text", half: true, showWhen: EXTRA_PARTY },
         ],
       },
       {
@@ -689,40 +699,31 @@ export const FORMS: readonly FormDef[] = [
       },
       {
         title: "מסמכים ותמונות לשליחה",
+        description:
+          "אפשר להעלות כאן תמונות ומסמכים, והם נשמרים בתיק הפנייה. כל השדות בסעיף זה אינם חובה. בנייד אפשר לצלם ישירות דרך המצלמה, והתמונות מוקטנות אוטומטית לפני השליחה.",
         fields: [
+          { name: "docs_vehicle_title", label: "א. מסמכים ותמונות הקשורים לרכב המבוטח", type: "statement" },
+          { name: "docDriverLicense", label: "צילום רישיון הנהיגה של נהג הרכב המבוטח", type: "file", multiple: true, half: true },
+          { name: "docVehicleLicense", label: "צילום רישיון הרכב המבוטח", type: "file", multiple: true, half: true },
+          { name: "docInsuranceCert", label: "צילום תעודת הביטוח של הרכב המבוטח", type: "file", multiple: true, half: true },
+          { name: "docDamage", label: "תמונות הנזקים לרכב המבוטח", type: "file", multiple: true, half: true },
+          { name: "docScene", label: "תמונות מזירת התאונה", type: "file", multiple: true, half: true },
+          { name: "docPolice", label: "אישור משטרה", type: "file", multiple: true, half: true, showWhen: { field: "police", equals: "כן" } },
+          { name: "docs_third_title", label: "ב. מסמכים ותמונות הקשורים לצד שלישי", type: "statement" },
+          { name: "docThirdDriverLicense", label: "צילום רישיון הנהיגה של נהג צד שלישי", type: "file", multiple: true, half: true },
+          { name: "docThirdVehicleLicense", label: "צילום רישיון רכב צד שלישי", type: "file", multiple: true, half: true },
+          { name: "docThirdInsuranceCert", label: "צילום תעודת הביטוח של רכב צד שלישי", type: "file", multiple: true, half: true },
+          { name: "docThirdDamage", label: "תמונות הנזקים לרכב צד שלישי", type: "file", multiple: true, half: true },
+          { name: "docThirdScene", label: "תמונות מזירת התאונה הקשורות לצד שלישי", type: "file", multiple: true, half: true },
           {
-            name: "docs_vehicle",
-            label: "א. מסמכים ותמונות הקשורים לרכב המבוטח",
-            type: "statement",
-            items: [
-              "צילום רישיון הנהיגה של נהג הרכב המבוטח",
-              "צילום רישיון הרכב המבוטח",
-              "צילום תעודת הביטוח של הרכב המבוטח",
-              "תמונות הנזקים לרכב המבוטח",
-              "תמונות מזירת התאונה",
-              "אישור משטרה, אם הייתה התערבות משטרה",
-            ],
-          },
-          {
-            name: "docs_third",
-            label: "ב. מסמכים ותמונות הקשורים לצד שלישי",
-            type: "statement",
-            items: [
-              "צילום רישיון הנהיגה של נהג צד שלישי",
-              "צילום רישיון רכב צד שלישי",
-              "צילום תעודת הביטוח של רכב צד שלישי",
-              "תמונות הנזקים לרכב צד שלישי",
-              "תמונות מזירת התאונה הקשורות לצד שלישי",
-            ],
-          },
-          {
+            // A voice message cannot go through a form, so that stays with WhatsApp.
             name: "docs_send",
             label: "",
             type: "statement",
             body: "ניתן לשלוח גם הקלטה קולית המתארת את התאונה.",
             action: {
-              label: "לשליחת התמונות, המסמכים והקלטה קולית: לחצו כאן",
-              href: `${WA_HREF}?text=${encodeURIComponent("שלום, אני שולח/ת תמונות ומסמכים בהמשך להודעה על תאונת דרכים.")}`,
+              label: "לשליחת הקלטה קולית או קבצים נוספים בווטסאפ: לחצו כאן",
+              href: `${WA_HREF}?text=${encodeURIComponent("שלום, אני שולח/ת הקלטה קולית וקבצים בהמשך להודעה על תאונת דרכים.")}`,
             },
           },
         ],
@@ -1304,6 +1305,24 @@ export function identityField(form: FormDef, of: "name"): FormField | undefined 
 /** The fields the agency may fill in when it sends this form (see FormField.agencyFills). */
 export function agencyFillFields(form: FormDef): FormField[] {
   return allFields(form).filter((f) => f.agencyFills);
+}
+
+/**
+ * The ones among them the agency must fill in before it can send the form: the
+ * fields the customer is required to answer. The rest it may leave empty.
+ */
+export function agencyMustFill(form: FormDef): FormField[] {
+  return agencyFillFields(form).filter((f) => f.required);
+}
+
+/**
+ * What the agent typed for a form, cleaned, and what the agency still has to
+ * give before the form can be sent. The one rule behind the send tool's greyed
+ * buttons and the server's refusal.
+ */
+export function agencyFillFor(form: FormDef, input: unknown): { prefill: Record<string, string>; missing: FormField[] } {
+  const prefill = cleanAgencyFill(form, input);
+  return { prefill, missing: agencyMustFill(form).filter((f) => !prefill[f.name]) };
 }
 
 /**

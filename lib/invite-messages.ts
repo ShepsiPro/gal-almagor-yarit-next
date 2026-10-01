@@ -23,21 +23,23 @@ function hello(name?: string): string {
 }
 
 /** A form (or the calculator that leads to one) the agency sends to open a file. */
-export function inviteMessage(opts: { title: string; link: string; name?: string; calculator?: boolean }): OutgoingMessage {
+export function inviteMessage(opts: { title: string; link: string; name?: string; calculator?: boolean; calculatorTitle?: string }): OutgoingMessage {
   const { title, link, name, calculator } = opts;
+  // The calculator's own name (it is not the form's), then what it does.
+  const calcName = opts.calculatorTitle || "מחשבון ביטוח דירה";
   const ask = calculator
-    ? "מחשבון להערכה ראשונית של ביטוח הדירה, ובסופו טופס בקשה קצר להצעה מסודרת"
+    ? `"${calcName}": הערכה ראשונית לעלות ביטוח הדירה, ובסופה פנייה קצרה להצעה מסודרת`
     : `הטופס "${title}"`;
   return {
     whatsapp: `${hello(name)}\nכאן ${SITE.brand}.\n${calculator ? `${ask}:` : `למילוי ${ask}:`}\n${link}`,
-    subject: `${calculator ? "מחשבון ביטוח דירה" : title} · ${SITE.brand}`,
-    heading: calculator ? "מחשבון ביטוח דירה" : title,
+    subject: `${calculator ? calcName : title} · ${SITE.brand}`,
+    heading: calculator ? calcName : title,
     greeting: hello(name),
     lines: [
-      calculator ? `שלחנו לכם ${ask}.` : `שלחנו לכם ${ask} למילוי.`,
+      calculator ? `שלחנו לכם את ${ask}.` : `שלחנו לכם ${ask} למילוי.`,
       "אפשר למלא מהנייד. אם משהו לא ברור, התקשרו אלינו ונשלים יחד.",
     ],
-    ctaLabel: calculator ? "למחשבון" : "למילוי הטופס",
+    ctaLabel: calculator ? "להערכה ולהצעה" : "למילוי הטופס",
     link,
   };
 }

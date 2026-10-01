@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { ADMIN_COOKIE, readSession } from "@/lib/admin-auth";
 import { cleanChannels, cleanRecipient, mintAnswerLink, resendInvite, retryMslahtkSync, sendAnswer, sendInvite } from "@/lib/case-invite";
-import { allFields, cleanAgencyFill, formAudience, getForm } from "@/lib/forms";
+import { agencyFillFor, allFields, formAudience, getForm } from "@/lib/forms";
 import { caseOpenedBy } from "@/lib/home-case";
 import { mintPrefillToken } from "@/lib/prefill";
 import { publicOrigin } from "@/lib/request";
@@ -115,8 +115,11 @@ export async function sendFormToCustomer(input: {
   if (kind === "simulator" && !caseOpenedBy(form)?.simulatorPath) return { ok: false, error: "לטופס הזה אין מחשבון" };
   const to = cleanRecipient(input);
   if (!to.ok) return { ok: false, error: to.error };
+  // What the customer must answer in the form, the agency must give before it can send it (the vehicle number of an accident notice).
+  const { prefill, missing } = agencyFillFor(form, input.prefill);
+  if (missing.length) return { ok: false, error: `יש להזין לפני השליחה: ${missing.map((f) => f.label).join(", ")}` };
   const origin = publicOrigin(await headers(), SITE.url);
-  return sendInvite({ form, kind, to: to.value, channels: cleanChannels(input.channels), agency: who, origin, page: "/admin/send", prefill: cleanAgencyFill(form, input.prefill) });
+  return sendInvite({ form, kind, to: to.value, channels: cleanChannels(input.channels), agency: who, origin, page: "/admin/send", prefill });
 }
 
 /** Send a form the customer has not filled yet once more: a fresh link to the same file. */

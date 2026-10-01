@@ -358,7 +358,7 @@ export default function FormRenderer({
 
       {totalBytes > 0 && (
         <div className="fform__meter">
-          קבצים מצורפים: {formatBytes(totalBytes)} מתוך {formatBytes(MAX_TOTAL_BYTES)}
+          קבצים מצורפים: <bdi dir="ltr">{formatBytes(totalBytes)}</bdi> מתוך <bdi dir="ltr">{formatBytes(MAX_TOTAL_BYTES)}</bdi>
         </div>
       )}
 
@@ -464,6 +464,14 @@ function Field({
   );
 
   if (field.type === "statement") {
+    // Only a heading: it names the group of fields that follows, with no box of its own.
+    if (field.label && !field.body && !field.items && !field.action) {
+      return (
+        <div className="fform__cell fform__cell--full fform__cell--subhead" data-field={field.name}>
+          <h3 className="fform__subhead">{field.label}</h3>
+        </div>
+      );
+    }
     return (
       <div className="fform__cell fform__cell--full" data-field={field.name}>
         <div className={`fform__statement${field.tone ? ` fform__statement--${field.tone}` : ""}`}>
@@ -525,7 +533,7 @@ function Field({
 
   if (field.type === "file") {
     return (
-      <div className={`${cell} fform__cell--full`} data-field={field.name}>
+      <div className={`${cell}${field.half ? "" : " fform__cell--full"}`} data-field={field.name}>
         <label htmlFor={id}>
           {field.label}
           {!field.required && <span className="fform__optional">אופציונלי</span>}
@@ -534,7 +542,9 @@ function Field({
           <span className="fform__drop-icon" aria-hidden="true">＋</span>
           <span className="fform__drop-text">
             {field.multiple ? "בחרו קבצים או צלמו" : "בחרו קובץ או צלמו"}
-            <em className="fform__drop-hint">JPG · PNG · PDF · עד {formatBytes(MAX_FILE_BYTES)}</em>
+            <em className="fform__drop-hint">
+              JPG · PNG · PDF · עד <bdi dir="ltr">{formatBytes(MAX_FILE_BYTES)}</bdi>
+            </em>
           </span>
         </label>
         <input
@@ -554,7 +564,9 @@ function Field({
             {files.map((f, i) => (
               <li key={`${f.name}-${i}`} className="fform__file">
                 <span className="fform__file-name">{f.name}</span>
-                <span className="fform__file-size">{formatBytes(f.size)}</span>
+                <span className="fform__file-size">
+                  <bdi dir="ltr">{formatBytes(f.size)}</bdi>
+                </span>
                 <button
                   type="button"
                   className="fform__file-remove"
@@ -579,6 +591,11 @@ function Field({
       <div className={`${cell} fform__cell--full`} data-field={field.name} role="group" aria-labelledby={`${id}-lbl`}>
         <span className="fform__group-label" id={`${id}-lbl`}>
           {field.label}
+          {field.required && (
+            <span className="fform__req" aria-hidden="true">
+              *
+            </span>
+          )}
         </span>
         <div className="fform__options">
           {field.options?.map((opt) => {

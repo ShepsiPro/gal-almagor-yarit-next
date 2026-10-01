@@ -7,7 +7,7 @@ import { answerMessage, inviteMessage } from "../lib/invite-messages";
 import { customerMailMode, renderCustomerEmail } from "../lib/mailer";
 import { sendWhatsappText, updateLeadFields } from "../lib/mslahtk";
 import { mintPrefillToken, verifyPrefillToken } from "../lib/prefill";
-import { getForm } from "../lib/forms";
+import { getCase, getForm } from "../lib/forms";
 
 // ── What the agent typed ────────────────────────────────────────────────────
 
@@ -93,6 +93,7 @@ test("every message carries the link and the customer's name, and no dash the ow
   const msgs = [
     inviteMessage({ title: "פנייה להצעת ביטוח לדירת מגורים", link, name: "דנה" }),
     inviteMessage({ title: "x", link, name: "דנה", calculator: true }),
+    inviteMessage({ title: "x", link, name: "דנה", calculator: true, calculatorTitle: getCase("home")!.simulatorTitle }),
     answerMessage({ link, name: "דנה" }),
   ];
   for (const m of msgs) {
@@ -100,10 +101,23 @@ test("every message carries the link and the customer's name, and no dash the ow
     assert.ok(m.whatsapp.startsWith("שלום דנה,"));
     assert.equal(m.link, link);
     for (const text of [m.whatsapp, m.subject, m.heading, m.greeting, ...m.lines, m.ctaLabel]) {
-      assert.ok(!/[—–―]/.test(text), `dash in: ${text}`);
+      assert.ok(!new RegExp("[\\u2014\\u2013\\u2015]").test(text), `dash in: ${text}`);
     }
   }
   assert.equal(inviteMessage({ title: "t", link }).greeting, "שלום,");
+});
+
+test("the calculator is called what the owner named it, on the page's data and in what the agency sends", () => {
+  const name = "פנייה להצעת ביטוח לדירת מגורים ועלות ביטוח";
+  assert.equal(getCase("home")!.simulatorTitle, name);
+  const link = "https://almagor-yaarit.com/simulator/home?p=abc";
+  const m = inviteMessage({ title: "פנייה להצעת ביטוח לדירת מגורים", link, name: "דנה", calculator: true, calculatorTitle: name });
+  assert.equal(m.heading, name);
+  assert.ok(m.subject.startsWith(name));
+  assert.ok(m.whatsapp.includes(`"${name}"`) && m.whatsapp.includes(link));
+  assert.ok(!m.heading.includes("מחשבון") && !m.subject.includes("מחשבון"), "the old name is gone from the heading and the subject");
+  // The form's own message is untouched.
+  assert.equal(inviteMessage({ title: "פנייה להצעת ביטוח לדירת מגורים", link, name: "דנה" }).heading, "פנייה להצעת ביטוח לדירת מגורים");
 });
 
 test("the customer email escapes what it is given and shows the link twice: button and plain", () => {
