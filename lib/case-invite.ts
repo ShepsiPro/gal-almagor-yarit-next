@@ -245,8 +245,8 @@ export async function openInvite(input: {
   const found = pending.find((r) => sameInvitee(r, to));
 
   if (found) {
-    // Pressing "send" again with nothing typed keeps what the first send carried.
-    const prefill = hasTyped ? typed : prefillOf(found, form);
+    // Sending again keeps what the first send carried; what is typed now replaces it, field by field.
+    const prefill = { ...prefillOf(found, form), ...typed };
     const source = { ...objectOf(found.source), inviteKind: kind, ...(hasTyped ? { prefill } : {}) };
     await db.submission.update({
       where: { id: found.id },
@@ -304,7 +304,7 @@ export async function sendInvite(input: {
   const { form, kind, to, channels, agency, origin, page } = input;
   const opened = await openInvite({ form, to, kind, agency, page, prefill: input.prefill });
   const link = inviteLink({ form, id: opened.id, to, origin, kind, prefill: opened.prefill });
-  const outcomes = await deliver(channels, to, inviteMessage({ title: form.title, link, name: to.name, calculator: kind === "simulator" }));
+  const outcomes = await deliver(channels, to, inviteMessage({ title: form.title, link, name: to.name, calculator: kind === "simulator", calculatorTitle: caseOpenedBy(form)?.simulatorTitle }));
   if (outcomes.length) await recordSends(opened.id, outcomes).catch(() => undefined);
   return { ok: true, id: opened.id, link, reused: opened.reused, registration: opened.registration, outcomes };
 }
@@ -323,7 +323,7 @@ export async function resendInvite(input: { id: string; channels: readonly Chann
   // A file whose lead was never created (Mslahtk was down at the first send) gets it now.
   const registration = row.mslahtkLeadId ? undefined : await registerLead(row, form, to, "/admin", prefill);
   const link = inviteLink({ form, id: row.id, to, origin: input.origin, kind, prefill });
-  const outcomes = await deliver(input.channels, to, inviteMessage({ title: form.title, link, name: to.name, calculator: kind === "simulator" }));
+  const outcomes = await deliver(input.channels, to, inviteMessage({ title: form.title, link, name: to.name, calculator: kind === "simulator", calculatorTitle: caseOpenedBy(form)?.simulatorTitle }));
   if (outcomes.length) await recordSends(row.id, outcomes).catch(() => undefined);
   return { ok: true, id: row.id, link, registration, outcomes };
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CASES, FORMS, agencyFillFields, formAudience, identityField, publicForms } from "@/lib/forms";
+import { CASES, FORMS, agencyFillFields, agencyMustFill, formAudience, identityField, publicForms } from "@/lib/forms";
 import type { SendOutcome } from "@/lib/send-types";
 import { SITE } from "@/lib/site";
 import { SendReport } from "./SendControls";
@@ -140,7 +140,10 @@ export default function FormLinks({ send }: { send?: SendFormAction }) {
     const result = results[id];
     const form = kind === "form" ? FORMS.find((f) => f.slug === slug) : undefined;
     const fillFields = form ? agencyFillFields(form) : [];
-    const mustAnswer = fillFields.filter((f) => f.required).map((f) => f.label);
+    // What the customer must answer, the agency gives before it can send (the vehicle number of an accident notice).
+    const mustGive = form ? agencyMustFill(form) : [];
+    const missing = mustGive.filter((f) => !(fills[slug]?.[f.name] ?? "").trim());
+    const waitFor = missing.length ? `יש להזין לפני השליחה: ${missing.map((f) => f.label).join(", ")}` : undefined;
     return (
       <li className={`flinks__item${fillFields.length ? " flinks__item--fills" : ""}`} key={id}>
         <div className="flinks__meta">
@@ -153,14 +156,17 @@ export default function FormLinks({ send }: { send?: SendFormAction }) {
 
         {fillFields.length > 0 && (
           <div className="flinks__fills">
-            <div className="flinks__fills-title">למלא מראש בטופס של הלקוח (לא חובה)</div>
+            <div className="flinks__fills-title">למלא מראש בטופס של הלקוח</div>
             <div className="flinks__fills-grid">
               {fillFields.map((f) => {
                 const fid = `fl-${slug}-${f.name}`;
                 const value = fills[slug]?.[f.name] ?? "";
                 return (
                   <div className="field" key={f.name}>
-                    <label htmlFor={fid}>{f.label}</label>
+                    <label htmlFor={fid}>
+                      {f.label}
+                      {f.required && <span className="fform__req" aria-hidden="true">*</span>}
+                    </label>
                     {f.type === "select" ? (
                       <select id={fid} value={value} onChange={(e) => setFill(slug, f.name, e.target.value)}>
                         <option value="">לא נבחר</option>
@@ -178,8 +184,9 @@ export default function FormLinks({ send }: { send?: SendFormAction }) {
               })}
             </div>
             <p className="flinks__fills-note">
-              הלקוח יראה אותם מלאים ויוכל לתקן.
-              {mustAnswer.length > 0 ? ` בטופס אצל הלקוח חובה למלא: ${mustAnswer.join(", ")}.` : ""}
+              {mustGive.length > 0 ? `חובה להזין לפני השליחה: ${mustGive.map((f) => f.label).join(", ")}. ` : ""}
+              {fillFields.length > mustGive.length ? "השאר לא חובה. " : ""}
+              הלקוח יראה אותם מלאים בטופס ויוכל לתקן.
             </p>
           </div>
         )}
@@ -189,28 +196,39 @@ export default function FormLinks({ send }: { send?: SendFormAction }) {
               <button
                 type="button"
                 className="map-btn map-btn--primary"
-                disabled={busy !== null || !hasContact || channels.length === 0}
-                title={!hasContact ? "יש להזין טלפון או דוא״ל של הלקוח" : channels.length === 0 ? "יש לסמן לפחות ערוץ שליחה אחד" : undefined}
+                disabled={busy !== null || !hasContact || channels.length === 0 || missing.length > 0}
+                title={waitFor ?? (!hasContact ? "יש להזין טלפון או דוא״ל של הלקוח" : channels.length === 0 ? "יש לסמן לפחות ערוץ שליחה אחד" : undefined)}
                 onClick={() => sendItem(id, slug, kind, false)}
               >
                 {busy === `${id}:send` ? "שולח…" : "שליחה ללקוח"}
               </button>
               {hasContact ? (
-                <button type="button" className="map-btn" disabled={busy !== null} onClick={() => sendItem(id, slug, kind, true)}>
+                <button type="button" className="map-btn" disabled={busy !== null || missing.length > 0} title={waitFor} onClick={() => sendItem(id, slug, kind, true)}>
                   {copied === id ? "הועתק ✓" : busy === `${id}:copy` ? "מייצר…" : "העתקת קישור אישי"}
                 </button>
               ) : (
-                <button type="button" className="map-btn" onClick={() => copy(id, plain)} title="קישור כללי: לא נרשם במסלחתק עד שהלקוח ימלא">
+                <button type="button" className="map-btn" disabled={missing.length > 0} onClick={() => copy(id, plain)} title={waitFor ?? "קישור כללי: לא נרשם במסלחתק עד שהלקוח ימלא"}>
                   {copied === id ? "הועתק ✓" : "העתקת קישור כללי"}
                 </button>
               )}
             </>
           ) : (
             <>
-              <a className="map-btn map-btn--primary" href={waHref(plain, title)} target="_blank" rel="noopener noreferrer">
+              <a
+                className={`map-btn map-btn--primary${missing.length ? " is-disabled" : ""}`}
+                href={waHref(plain, title)}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-disabled={missing.length > 0}
+                tabIndex={missing.length ? -1 : undefined}
+                title={waitFor}
+                onClick={(e) => {
+                  if (missing.length) e.preventDefault();
+                }}
+              >
                 שליחה בווטסאפ
               </a>
-              <button type="button" className="map-btn" onClick={() => copy(id, plain)}>
+              <button type="button" className="map-btn" disabled={missing.length > 0} title={waitFor} onClick={() => copy(id, plain)}>
                 {copied === id ? "הועתק ✓" : "העתקת קישור"}
               </button>
             </>
@@ -271,7 +289,7 @@ export default function FormLinks({ send }: { send?: SendFormAction }) {
           renderItem({
             id: `sim-${c.key}`,
             eyebrow: c.title,
-            title: "מחשבון ביטוח דירה (הערכה ראשונית, ואז טופס הבקשה)",
+            title: c.simulatorTitle ?? "מחשבון ביטוח דירה",
             slug: c.request,
             kind: "simulator",
           })

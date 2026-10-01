@@ -4,7 +4,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { inviteLink } from "../lib/case-invite";
-import { FORMS, agencyFillFields, allFields, cleanAgencyFill, getForm, prefillableFields } from "../lib/forms";
+import { FORMS, agencyFillFields, agencyFillFor, agencyMustFill, allFields, cleanAgencyFill, getForm, prefillableFields } from "../lib/forms";
 import { verifyPrefillToken } from "../lib/prefill";
 
 const claim = getForm("claim")!;
@@ -49,6 +49,23 @@ test("the agency can fill in exactly those three, and only on this form", () => 
 test("a plain link can pre-fill them too, and so can the customer's own name and phone", () => {
   const names = prefillableFields(claim);
   for (const n of ["vehicleNumber", "insurer", "policyNumber", "fullName", "phone"]) assert.ok(names.includes(n), `${n} is prefillable`);
+});
+
+test("before sending, the agency must give the vehicle number and only that: the company and the policy number may stay empty", () => {
+  assert.deepEqual(agencyMustFill(claim).map((f) => f.name), ["vehicleNumber"]);
+  assert.deepEqual(agencyFillFields(claim).filter((f) => !f.required).map((f) => f.name), ["insurer", "policyNumber"]);
+  for (const f of FORMS) if (f.slug !== "claim") assert.equal(agencyMustFill(f).length, 0, `${f.slug} asks nothing of the agency before sending`);
+});
+
+test("the form cannot be sent until the vehicle number is there, whatever else was typed", () => {
+  assert.deepEqual(agencyFillFor(claim, {}).missing.map((f) => f.name), ["vehicleNumber"]);
+  assert.deepEqual(agencyFillFor(claim, undefined).missing.map((f) => f.name), ["vehicleNumber"]);
+  assert.deepEqual(agencyFillFor(claim, { insurer: "הראל", policyNumber: "123" }).missing.map((f) => f.name), ["vehicleNumber"], "the company and the policy number do not stand in for it");
+  assert.deepEqual(agencyFillFor(claim, { vehicleNumber: "   " }).missing.map((f) => f.name), ["vehicleNumber"], "blanks do not count");
+  const ok = agencyFillFor(claim, { vehicleNumber: " 12-345-67 " });
+  assert.deepEqual(ok.missing, []);
+  assert.deepEqual(ok.prefill, { vehicleNumber: "12-345-67" }, "the company and the policy number may stay empty");
+  assert.deepEqual(agencyFillFor(getForm("home-request")!, {}).missing, [], "forms with nothing for the agency to give are never held back");
 });
 
 // ── What the agent typed ────────────────────────────────────────────────────

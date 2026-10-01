@@ -1913,6 +1913,10 @@ html.a11y-noanim .site-root *::after {
   color: var(--muted);
   letter-spacing: 0;
 }
+/* A heading that names a group of fields inside a section (the additional party, the two lists of documents). */
+.fform__cell--subhead { padding-top: 14px; border-top: 1px solid var(--line); }
+.fform__grid > .fform__cell--subhead:first-child { padding-top: 0; border-top: 0; }
+.fform__subhead { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
 .fform__help { margin: 7px 0 0; font-size: 12px; line-height: 1.55; color: var(--muted); }
 .fform__error { margin: 7px 0 0; font-size: 12px; font-weight: 700; color: #C0392B; }
 
@@ -1966,6 +1970,8 @@ input.fform__file-input {
   transition: border-color .2s, background .2s;
 }
 .fform__drop:hover { border-color: var(--accent); background: #fff; }
+/* It is a <label> inside a .field, and `.field label { display: block }` would otherwise win: icon beside the text, as designed. */
+.field label.fform__drop { display: flex; margin-bottom: 0; letter-spacing: 0; }
 .fform__drop-icon {
   flex: none;
   width: 38px;
@@ -2646,6 +2652,7 @@ input.fform__file-input {
   .flinks__prefill { grid-template-columns: 1fr; }
 }
 .map-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.map-btn.is-disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
 .flinks__notice {
   display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
   margin-top: 28px; padding: 16px 20px; border: 1px solid var(--line); border-right: 4px solid var(--accent);
