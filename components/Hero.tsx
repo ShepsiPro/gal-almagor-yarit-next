@@ -6,8 +6,8 @@ export default function Hero() {
       <div className="container hero__inner">
         <div>
           <div className="badge">
-            <span className="badge__tag">קבוצת גל אלמגור</span>
-            <span className="badge__text">סוכנות לביטוח </span>
+            <span className="badge__tag">יערית</span>
+            <span className="badge__text">מקבוצת גל אלמגור סוכנות לביטוח</span>
           </div>
           <h1 className="hero__title">
             הבית הביטוחי
@@ -17,7 +17,7 @@ export default function Hero() {
             <em>המערבי.</em>
           </h1>
           <p className="hero__lede">
-            גל אלמגור הגיעה לשלומי, סניף אשר ילווה לקוחות ובעלי עסקים לאורך כל
+            יערית מקבוצת גל אלמגור סוכנות לביטוח הגיעה לשלומי, סניף אשר ילווה לקוחות ובעלי עסקים לאורך כל
             קו העימות עם מגוון מוצרים ומחירים יחודיים אשר יועדו לתושבי היישובים
             צמודי גדר.
           </p>
@@ -35,7 +35,7 @@ export default function Hero() {
         <div className="hero__art">
           <Image
             src="/assets/office-shlomi.jpg"
-            alt="משרד סוכנות יערית בשלומי — הגליל המערבי"
+            alt="משרד יערית מקבוצת גל אלמגור סוכנות לביטוח בשלומי, הגליל המערבי"
             className="hero__art-img"
             fill
             sizes="(max-width: 920px) 92vw, 45vw"

@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "סוכנות יערית · ביטוח · שלומי",
+    name: "יערית מקבוצת גל אלמגור סוכנות לביטוח",
     short_name: "יערית",
     description:
       "סוכנות ביטוח עצמאית בשלומי, חברה בקבוצת גל אלמגור. ביטוחי רכב, דירה, עסקים, חיים ובריאות, פרישה ופיננסים.",

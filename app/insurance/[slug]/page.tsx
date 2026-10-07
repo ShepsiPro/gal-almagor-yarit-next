@@ -7,7 +7,7 @@ import Contact from "@/components/Contact";
 import Quote from "@/components/Quote";
 import { getCase } from "@/lib/forms";
 import { INSURANCE_CONTENT, INSURANCE_SLUGS } from "@/lib/insurance-data";
-import { SIMULATOR_ENABLED, TEL_HREF } from "@/lib/site";
+import { SIMULATOR_ENABLED, SITE, TEL_HREF } from "@/lib/site";
 
 type Params = { slug: string };
 type PageProps = { params: Promise<Params> };
@@ -22,10 +22,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!c) return {};
   return {
     alternates: { canonical: `/insurance/${slug}` },
-    title: `${c.eyebrow} · גל אלמגור יערית · שלומי`,
+    title: `${c.eyebrow} · ${SITE.legalName}`,
     description: c.intro,
     openGraph: {
-      title: `${c.eyebrow} · גל אלמגור יערית · שלומי`,
+      title: `${c.eyebrow} · ${SITE.legalName}`,
       description: c.intro,
       type: "article",
       locale: "he_IL",
@@ -128,7 +128,7 @@ export default async function InsurancePage({ params }: PageProps) {
                 רוצים הצעה מותאמת ל{content.eyebrow}?
               </h3>
               <p className="info-aside__desc">
-                סניף שלומי של גל אלמגור עומד לרשותכם — שיחת ייעוץ ללא עלות
+                {SITE.legalName} עומדת לרשותכם: שיחת ייעוץ ללא עלות
                 והתחייבות, עם איש קשר אישי שמלווה אתכם לאורך כל הדרך.
               </p>
               {calculator ? (

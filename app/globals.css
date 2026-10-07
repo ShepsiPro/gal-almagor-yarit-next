@@ -1017,7 +1017,7 @@ a.crow__value[dir="ltr"] { text-align: right; }
 .footer__logo {
   height: 50px;
   width: auto;
-  aspect-ratio: 678 / 246;
+  aspect-ratio: 990 / 246;
   object-fit: contain;
   align-self: flex-start; /* .footer__brandcol is a flex column; without this the img stretches to full column width */
   display: block;

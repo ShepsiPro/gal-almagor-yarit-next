@@ -21,11 +21,11 @@ export const metadata: Metadata = {
   // page that does not set its own, and it told Google that /about and all
   // six /insurance/* pages were copies of the home page. Each page declares
   // its own canonical instead (the home page in app/page.tsx).
-  title: "גל אלמגור יערית · סוכנות ביטוח · שלומי",
+  title: "יערית מקבוצת גל אלמגור סוכנות לביטוח · שלומי",
   description:
     "סוכנות ביטוח עצמאית בשלומי, חברה בקבוצת גל אלמגור. ביטוחי רכב, דירה, עסקים, חיים ובריאות, פרישה ופיננסים, בליווי אישי לכל מהלך התיק.",
   openGraph: {
-    title: "גל אלמגור יערית · סוכנות ביטוח · שלומי",
+    title: "יערית מקבוצת גל אלמגור סוכנות לביטוח · שלומי",
     description:
       "סוכנות ביטוח עצמאית בשלומי, חברה בקבוצת גל אלמגור. 40+ שנות ניסיון בליווי משפחות ועסקים בגליל המערבי.",
     type: "website",
@@ -49,8 +49,9 @@ const SITE_GRAPH = {
     {
       "@type": "InsuranceAgency",
       "@id": `${SITE.url}/#org`,
-      name: "גל אלמגור יערית",
-      alternateName: SITE.brand,
+      name: SITE.legalName,
+      legalName: SITE.legalName,
+      alternateName: "יערית",
       url: SITE.url,
       telephone: SITE.phoneE164,
       email: SITE.email,
@@ -71,7 +72,7 @@ const SITE_GRAPH = {
       "@type": "WebSite",
       "@id": `${SITE.url}/#website`,
       url: SITE.url,
-      name: "גל אלמגור יערית",
+      name: SITE.legalName,
       inLanguage: "he",
       publisher: { "@id": `${SITE.url}/#org` },
       creator: {
