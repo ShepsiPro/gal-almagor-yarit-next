@@ -4,11 +4,13 @@
 // so the site is safe to deploy before the numbers are filled in.
 
 export const SITE = {
-  legalName: "גל אלמגור יערית — סוכנות לביטוח",
-  brand: "סוכנות יערית · שלומי",
+  // The business's full name, the one used everywhere for legal purposes (owner, 2026-10-07): the name, then
+  // the group and "סוכנות לביטוח", never one without the other. Messages, emails, titles and the footer all use it.
+  legalName: "יערית מקבוצת גל אלמגור סוכנות לביטוח",
+  brand: "יערית מקבוצת גל אלמגור סוכנות לביטוח",
   group: "קבוצת גל אלמגור",
   tagline:
-    "סוכנות ביטוח עצמאית בשלומי, חברה בקבוצת גל אלמגור — ליווי אישי לתיק הביטוח של משפחות ועסקים בגליל המערבי.",
+    "סוכנות ביטוח עצמאית בשלומי, חברה בקבוצת גל אלמגור. ליווי אישי לתיק הביטוח של משפחות ועסקים בגליל המערבי.",
   domain: "almagor-yaarit.com",
   url: "https://almagor-yaarit.com",
 

@@ -24,9 +24,9 @@ export default function Header() {
         <Link href="/" className="header__brand" onClick={close}>
           <Image
             src="/assets/yarit-logo.png"
-            alt="יערית · מקבוצת גל אלמגור"
+            alt="יערית מקבוצת גל אלמגור סוכנות לביטוח"
             className="header__logo-img"
-            width={678}
+            width={990}
             height={246}
             priority
           />

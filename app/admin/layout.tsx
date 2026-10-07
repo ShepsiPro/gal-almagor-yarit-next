@@ -19,7 +19,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <header className="adm__bar">
         <Link className="adm__brand" href="/admin">
           <span className="adm__brandname">ניהול טפסים</span>
-          <span className="adm__brandsub">יערית · גל אלמגור</span>
+          <span className="adm__brandsub">יערית מקבוצת גל אלמגור סוכנות לביטוח</span>
         </Link>
         {admin && <AdminNav mslahtkUrl={dashboardProjectUrl()} who={admin.email || admin.sub} />}
       </header>
