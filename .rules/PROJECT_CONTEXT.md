@@ -1,6 +1,6 @@
 # PROJECT CONTEXT
 
-**Project:** Gal Almagor yarit
+**Project:** יערית מקבוצת גל אלמגור סוכנות לביטוח
 **Type:** landing
 
 No description provided.

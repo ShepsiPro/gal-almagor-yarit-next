@@ -1,7 +1,7 @@
-# PROJECT IDENTITY: Gal Almagor yarit
+# PROJECT IDENTITY: יערית מקבוצת גל אלמגור סוכנות לביטוח
 
 ## BUSINESS CONTEXT
-- **Name:** Gal Almagor yarit
+- **Name:** יערית מקבוצת גל אלמגור סוכנות לביטוח (the business's name for legal purposes, in full, since 2026-10-07; in English: Yarit, of the Gal Almagor group, insurance agency)
 - **Type:** landing
 - **Description:** No description provided.
 - **Status:** Initialized

@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Generate Yarit logo + icon assets from the source WhatsApp image.
+"""SUPERSEDED (2026-10-07) by scripts/build_name_lockups.py: the logo now carries the full name
+"יערית מקבוצת גל אלמגור סוכנות לביטוח". Kept as the history of the first asset set.
+
+Generate Yarit logo + icon assets from the source WhatsApp image.
 
 Source: a 1024x1024 stacked lockup (shield / "יערית" / "סוכנות לביטוח")
 on a near-white background.
