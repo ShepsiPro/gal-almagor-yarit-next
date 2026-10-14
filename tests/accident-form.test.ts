@@ -18,11 +18,12 @@ const field = (name: string): FormField => {
 };
 const visible = (name: string, values: Record<string, string>) => isFieldVisible(form, field(name), values);
 
-test("the claim form is the accident notice, on the same public link", () => {
+test("the claim form is the accident notice, sent by the agency and opened only from its link", () => {
   assert.equal(form.slug, "claim");
   assert.equal(form.title, "הודעה על תאונת דרכים");
   assert.ok(publicForms().some((f) => f.slug === "claim"), "still listed for the agency to send");
-  assert.equal(form.requiresToken, undefined);
+  assert.equal(form.requiresToken, undefined, "the agency can send it from scratch");
+  assert.equal(form.inviteOnly, true, "a customer opens it only from the link the agency sent");
 });
 
 test("the sections are the draft's eight, in its order, then the privacy consent", () => {

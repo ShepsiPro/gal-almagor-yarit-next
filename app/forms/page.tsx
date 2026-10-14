@@ -1,38 +1,15 @@
-import type { Metadata } from "next";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import FormLinks from "@/components/FormLinks";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "טפסים לשליחה ללקוח",
-  robots: { index: false, follow: false },
-};
+// Answered per request, so the redirect is a real HTTP one rather than a baked page.
+export const dynamic = "force-dynamic";
 
+/**
+ * The old "forms to send" page. Forms are now sent only from the back-office,
+ * where the sender is signed in (so the customer's answer alerts them), and the
+ * car and accident forms open only from the personal link that send produces.
+ * Staff who land here go to the back-office send page, which signs them in
+ * through Mslahtk first. The apartment calculator (/simulator/home) stays public.
+ */
 export default function FormsIndexPage() {
-  return (
-    <>
-      <Header />
-      <main id="main-content" tabIndex={-1} className="fpage">
-        <div className="fpage__inner">
-          <div className="eyebrow">שימוש פנימי</div>
-          <h1 className="fpage__title">טפסים לשליחה ללקוח</h1>
-          <p className="fpage__intro">
-            בחרו טופס ושלחו את הקישור ללקוח. אפשר למלא מראש שם וטלפון כדי שהלקוח
-            יקבל טופס מותאם. הטופס המלא חוזר אלינו למייל, כולל הקבצים המצורפים.
-          </p>
-          <aside className="flinks__notice">
-            <p>
-              <strong>הכלי הזה לא רושם את הלקוח במסלחתק.</strong> כדי שהלקוח יירשם ברגע השליחה, ושהטופס יישלח לו
-              לווטסאפ או למייל שלו, שלחו מתוך ניהול הטפסים.
-            </p>
-            <a className="map-btn map-btn--primary" href="/admin/send">
-              שליחה מניהול הטפסים
-            </a>
-          </aside>
-          <FormLinks />
-        </div>
-      </main>
-      <Footer />
-    </>
-  );
+  redirect("/admin/send");
 }
