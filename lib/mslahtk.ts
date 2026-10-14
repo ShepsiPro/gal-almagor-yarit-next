@@ -226,13 +226,28 @@ export async function setLeadStage(leadId: string, status: string, via: string):
 }
 
 /**
- * POST .../notify: tell the business OWNER something, through Mslahtk. It lands
- * as a bell row and a push on the owner's phone; tapping it opens this site's
+ * POST .../notify: tell someone at the business something, through Mslahtk. It
+ * lands as a bell row and a push on their phone; tapping it opens this site's
  * back-office signed in, on `to` (a path under /admin) or on the lead's case.
+ *
+ * `recipient` names the team member it is for: the Mslahtk user id the launch
+ * token carried for the employee who sent the customer the form (or their
+ * email, on rows filed before the id was kept). Mslahtk delivers it to that
+ * member while they are active with the leads area, and to the owner
+ * otherwise, so nothing is lost when someone leaves. `ownerCard` also shows it
+ * on the owner's Live Activity when a member got it.
+ *
  * Needs the `owner:notify` scope on the service token. Never reaches a
- * customer. Mslahtk caps the pace (30 an hour) and collapses repeats.
+ * customer. Mslahtk caps the pace (30 an hour per person) and collapses repeats.
  */
-export async function notifyOwner(input: { title: string; body?: string; to?: string; leadId?: string }): Promise<LeadOpResult> {
+export async function notifyBusiness(input: {
+  title: string;
+  body?: string;
+  to?: string;
+  leadId?: string;
+  recipient?: string;
+  ownerCard?: boolean;
+}): Promise<LeadOpResult> {
   const cfg = mslahtkConfig();
   if (!mslahtkConfigured()) return { ok: false, error: "Mslahtk is not configured", skipped: true };
   try {
@@ -244,6 +259,8 @@ export async function notifyOwner(input: { title: string; body?: string; to?: st
         ...(input.body ? { body: input.body.slice(0, 300) } : {}),
         ...(input.to ? { to: input.to } : {}),
         ...(input.leadId ? { leadId: input.leadId } : {}),
+        ...(input.recipient ? { recipient: input.recipient } : {}),
+        ...(input.ownerCard ? { ownerCard: true } : {}),
       }),
       signal: AbortSignal.timeout(8000),
     });

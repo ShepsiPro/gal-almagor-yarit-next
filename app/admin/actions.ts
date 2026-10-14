@@ -28,7 +28,8 @@ export type ResendResult = { url: string; locked: number; prefilled: number } | 
  */
 export async function buildResendLink(submissionId: string, locked: string[]): Promise<ResendResult> {
   const jar = await cookies();
-  if (!readSession(jar.get(ADMIN_COOKIE)?.value)) return { error: "אין הרשאה, התחברו מחדש" };
+  const who = readSession(jar.get(ADMIN_COOKIE)?.value);
+  if (!who) return { error: "אין הרשאה, התחברו מחדש" };
   if (!submissionId) return { error: "חסר מזהה טופס" };
 
   const sub = await getSubmission(submissionId).catch(() => null);
@@ -47,7 +48,9 @@ export async function buildResendLink(submissionId: string, locked: string[]): P
   }
   const safeLocked = (Array.isArray(locked) ? locked : []).filter((n) => known.has(n) && values[n]);
 
-  const token = mintPrefillToken({ slug: form.slug, values, locked: safeLocked, fromLeadId: sub.id });
+  // The link names who made it, so the alert when the customer files it reaches them.
+  const by = who.sub && who.sub !== "unknown" ? who.sub : undefined;
+  const token = mintPrefillToken({ slug: form.slug, values, locked: safeLocked, fromLeadId: sub.id, ...(by ? { by } : {}) });
 
   // Prefer the host actually being browsed, so a link built on staging points
   // at staging rather than silently at production.
@@ -71,9 +74,10 @@ export async function buildResendLink(submissionId: string, locked: string[]): P
  */
 export async function buildAnswerLink(caseId: string): Promise<ResendResult> {
   const jar = await cookies();
-  if (!readSession(jar.get(ADMIN_COOKIE)?.value)) return { error: "אין הרשאה, התחברו מחדש" };
+  const who = readSession(jar.get(ADMIN_COOKIE)?.value);
+  if (!who) return { error: "אין הרשאה, התחברו מחדש" };
   if (!caseId) return { error: "חסר מזהה תיק" };
-  const minted = await mintAnswerLink(caseId, publicOrigin(await headers(), SITE.url));
+  const minted = await mintAnswerLink(caseId, publicOrigin(await headers(), SITE.url), who);
   if (!minted.ok) return { error: minted.error };
   return { url: minted.url, locked: minted.locked, prefilled: minted.prefilled };
 }
@@ -124,16 +128,18 @@ export async function sendFormToCustomer(input: {
 
 /** Send a form the customer has not filled yet once more: a fresh link to the same file. */
 export async function resendToCustomer(submissionId: string, channels: string[]): Promise<SendOutcome> {
-  if (!(await admin())) return NO_SESSION;
+  const who = await admin();
+  if (!who) return NO_SESSION;
   if (!submissionId) return { ok: false, error: "חסר מזהה פנייה" };
-  return resendInvite({ id: submissionId, channels: cleanChannels(channels), origin: publicOrigin(await headers(), SITE.url) });
+  return resendInvite({ id: submissionId, channels: cleanChannels(channels), origin: publicOrigin(await headers(), SITE.url), agency: who });
 }
 
 /** Send form 3 to the phone and email the customer gave in form 1. */
 export async function sendAnswerToCustomer(caseId: string, channels: string[]): Promise<SendOutcome> {
-  if (!(await admin())) return NO_SESSION;
+  const who = await admin();
+  if (!who) return NO_SESSION;
   if (!caseId) return { ok: false, error: "חסר מזהה תיק" };
-  return sendAnswer({ caseId, channels: cleanChannels(channels), origin: publicOrigin(await headers(), SITE.url) });
+  return sendAnswer({ caseId, channels: cleanChannels(channels), origin: publicOrigin(await headers(), SITE.url), agency: who });
 }
 
 /** "Try again" on the notice that says Mslahtk did not take the customer: register a sent file, or fill in a filled one. */

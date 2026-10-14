@@ -21,7 +21,7 @@
 import { NextResponse } from "next/server";
 import type { Submission } from "@prisma/client";
 import type { AdminIdentity } from "./admin-auth";
-import { completeInvite, fillLeadFromRow, loadInvite } from "./case-invite";
+import { completeInvite, fillLeadFromRow, loadInvite, senderOf } from "./case-invite";
 import { dmyHm, isValidIsoDate } from "./dates";
 import { db } from "./db";
 import {
@@ -54,7 +54,7 @@ import {
 } from "./home-case";
 import { computeHomeQuote, decodeSnapshot, roundShekel } from "./home-quote";
 import { renderEmail, sendMail, type MailAttachment, type Row } from "./mailer";
-import { dashboardLeadUrl, notifyOwner, setLeadStage, submitLead, updateLead } from "./mslahtk";
+import { dashboardLeadUrl, notifyBusiness, setLeadStage, submitLead, updateLead } from "./mslahtk";
 import { verifyPrefillToken } from "./prefill";
 import { createSubmission, storeFiles, type IncomingFile, type StoreResult } from "./submissions";
 
@@ -383,21 +383,26 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
     }
   }
 
-  // The owner hears an invited customer filled the form (below). It waits on
-  // Mslahtk like the CRM work does and depends on nothing in it, so it starts now.
-  const toldOwner =
+  // Whoever SENT this form hears the customer filled it (below), on their own
+  // phone; the owner sees it as a Live Activity card instead of a second alert.
+  // It waits on Mslahtk like the CRM work does and depends on nothing in it, so
+  // it starts now.
+  const toldSender =
     completed && submission
-      ? notifyOwner({
+      ? notifyBusiness({
           title: "הלקוח מילא את הטופס",
           body: `${customerName || completed.name || "לקוח"}: ${form.title}`,
           to: `/admin/${submission.id}`,
           leadId: completed.mslahtkLeadId || undefined,
+          recipient: senderOf(completed) ?? undefined,
+          ownerCard: true,
         })
       : null;
 
   // 3. The CRM.
   let leadOk = false;
   let leadSkipped = false;
+  let filedLeadId: string | undefined;
   const role = form.caseRole;
   if (parent?.mslahtkLeadId && (role === "offer" || role === "answer")) {
     // The case's lead already exists: move it and write the summary onto it.
@@ -453,6 +458,7 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
     });
     leadOk = lead.ok;
     leadSkipped = Boolean(!lead.ok && lead.skipped);
+    if (lead.ok) filedLeadId = lead.leadId;
     if (submission) {
       const submissionId = submission.id;
       await db.submission
@@ -473,27 +479,45 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
   }
 
   // 3b. The customer answered the offer (form 3): the one moment in a case that
-  // arrives from outside while nobody is looking. Tell the owner on the phone,
-  // through Mslahtk; the tap opens this case in the back-office, signed in.
-  // Never blocks the customer's submit: a failure is logged, the row and the
-  // mail below stand either way.
+  // arrives from outside while nobody is looking. Tell whoever sent the answer
+  // link (the link names them; an older link without a name reaches the owner)
+  // on the phone, through Mslahtk; the tap opens this case in the back-office,
+  // signed in. Never blocks the customer's submit: a failure is logged, the row
+  // and the mail below stand either way.
   if (role === "answer" && parent) {
-    const told = await notifyOwner({
+    const told = await notifyBusiness({
       title: "הלקוח השיב להצעה",
       body: `${parent.name || "לקוח"}: ${decisionLabel(decisionOf(answers))}`,
       to: `/admin/${parent.id}`,
       leadId: parent.mslahtkLeadId || undefined,
+      recipient: sent?.by,
+      ownerCard: true,
     });
-    if (!told.ok && !told.skipped) console.error("[forms] owner notify failed", { slug, error: told.error });
+    if (!told.ok && !told.skipped) console.error("[forms] notify failed", { slug, error: told.error });
   }
 
   // 3c. The customer filled a form the agency SENT: the one thing the agency is
   // waiting for and cannot see happen. (A customer who arrives unasked already
   // produces Mslahtk's own "new lead" alert; this one's lead was created at the
-  // send, so without this nothing would tell the owner.) Never blocks the submit.
-  if (toldOwner) {
-    const told = await toldOwner;
-    if (!told.ok && !told.skipped) console.error("[forms] owner notify failed", { slug, error: told.error });
+  // send, so without this nothing would tell anyone.) Never blocks the submit.
+  if (toldSender) {
+    const told = await toldSender;
+    if (!told.ok && !told.skipped) console.error("[forms] notify failed", { slug, error: told.error });
+  }
+
+  // 3d. The customer filed a form the agency sent AGAIN to correct it (a link
+  // from the back-office that names who made it): that person hears it too.
+  // This one files a new lead, so the owner already has Mslahtk's own new-lead
+  // alert for it: no card on top.
+  if (!completed && resentFromRef && sent?.by && submission) {
+    const told = await notifyBusiness({
+      title: "הלקוח מילא את הטופס",
+      body: `${customerName || "לקוח"}: ${form.title}`,
+      to: `/admin/${submission.id}`,
+      leadId: filedLeadId,
+      recipient: sent.by,
+    });
+    if (!told.ok && !told.skipped) console.error("[forms] notify failed", { slug, error: told.error });
   }
 
   // 4. The notification. Only for what a customer sent: the agency does not

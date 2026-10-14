@@ -34,6 +34,11 @@ export type Prefill = {
    * opening a second pair, so the customer is on record from the send.
    */
   inviteId?: string;
+  /**
+   * Who at the agency made this link: their Mslahtk user id, from the launch
+   * token. When the customer files the form, the alert goes to them.
+   */
+  by?: string;
 };
 
 const RECORD_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -69,7 +74,8 @@ export function verifyPrefillToken(token: string | undefined | null): Prefill | 
     );
     const caseId = typeof obj.caseId === "string" && RECORD_ID.test(obj.caseId) ? obj.caseId : undefined;
     const inviteId = typeof obj.inviteId === "string" && RECORD_ID.test(obj.inviteId) ? obj.inviteId : undefined;
-    return { slug: String(obj.slug), values, locked, fromLeadId: obj.fromLeadId ? String(obj.fromLeadId) : undefined, caseId, inviteId };
+    const by = typeof obj.by === "string" && RECORD_ID.test(obj.by) ? obj.by : undefined;
+    return { slug: String(obj.slug), values, locked, fromLeadId: obj.fromLeadId ? String(obj.fromLeadId) : undefined, caseId, inviteId, ...(by ? { by } : {}) };
   } catch {
     return null;
   }
