@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FormRenderer from "@/components/FormRenderer";
-import { FORM_SLUGS, formAudience, getForm, prefillableFields } from "@/lib/forms";
+import { FORM_SLUGS, formAudience, getForm, opensFromLinkOnly, prefillableFields } from "@/lib/forms";
 import { caseOpenedBy, requestPrefillFromSimulator } from "@/lib/home-case";
 import { computeHomeQuote, decodeSnapshot, encodeSnapshot, roundShekel, type HomeQuoteInput, type HomeQuoteResult } from "@/lib/home-quote";
 import { SITE, TEL_HREF } from "@/lib/site";
@@ -149,7 +149,7 @@ export default async function FormPage({ params, searchParams }: PageProps) {
             ונשלים יחד.
           </p>
 
-          {form.requiresToken && !tokenOk ? (
+          {opensFromLinkOnly(form) && !tokenOk ? (
             <LinkExpired title={form.title} />
           ) : (
             <>

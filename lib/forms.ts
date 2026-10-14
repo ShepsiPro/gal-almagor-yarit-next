@@ -121,6 +121,13 @@ export type FormDef = {
    * "link expired" notice without a valid token and the API refuses the post.
    */
   requiresToken?: boolean;
+  /**
+   * Opens only from a link the agency sent, like `requiresToken`, but the
+   * back-office can still send it to anyone from scratch (requiresToken forms
+   * only go out from inside their case). Every filled one then has a sender on
+   * record, which is who its alerts reach.
+   */
+  inviteOnly?: boolean;
   /** The multi-form case this form is a stage of (see CASES). */
   caseKey?: string;
   caseRole?: CaseRole;
@@ -188,6 +195,7 @@ const CONSENT_FIELD: FormField = {
 export const FORMS: readonly FormDef[] = [
   {
     slug: "car",
+    inviteOnly: true,
     eyebrow: "הצהרת מבוטח",
     title: "הצהרת מבוטח — ביטוח חדש או חידוש",
     intro:
@@ -578,6 +586,7 @@ export const FORMS: readonly FormDef[] = [
   // number is required; the company and the policy number are optional.
   {
     slug: "claim",
+    inviteOnly: true,
     eyebrow: "הודעה על תאונה",
     title: "הודעה על תאונת דרכים",
     intro: "נא למלא את הפרטים בצורה מלאה ומדויקת ככל האפשר.",
@@ -1287,7 +1296,12 @@ export function formAudience(form: FormDef): FormAudience {
   return form.audience ?? "customer";
 }
 
-/** Forms a customer can open from a plain link: not agency-only, not token-only. */
+/** A form the customer can only open from a link the agency sent. */
+export function opensFromLinkOnly(form: FormDef): boolean {
+  return Boolean(form.requiresToken || form.inviteOnly);
+}
+
+/** Forms the agency can send a customer from scratch: not agency-only, not case-only. */
 export function publicForms(): FormDef[] {
   return FORMS.filter((f) => formAudience(f) === "customer" && !f.requiresToken);
 }

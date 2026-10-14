@@ -39,6 +39,7 @@ import {
   getForm,
   isFieldVisible,
   isValidIsraeliId,
+  opensFromLinkOnly,
   type FormField,
 } from "./forms";
 import {
@@ -147,7 +148,7 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
   // anyone can POST here directly.
   const sent = verifyPrefillToken(data.get("_prefill") as string | null);
   const tokenOk = Boolean(sent && sent.slug === slug);
-  if (form.requiresToken && !tokenOk) {
+  if (opensFromLinkOnly(form) && !tokenOk) {
     return bad("הקישור לטופס אינו תקין או שפג תוקפו. בקשו מהסוכנות קישור חדש.", 403);
   }
   let resentFromRef: string | undefined;
