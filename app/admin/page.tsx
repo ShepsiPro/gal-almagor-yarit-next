@@ -5,6 +5,7 @@ import { caseOpenedBy, caseStageOf, stageLabel } from "@/lib/home-case";
 import AdminIcon from "@/components/AdminIcon";
 import StatusChip from "@/components/StatusChip";
 import { sweepStatuses } from "@/lib/mslahtk-sync";
+import { remindUnfilled } from "@/lib/reminders";
 import { listSubmissions } from "@/lib/submissions";
 import { requireAdmin } from "./session";
 
@@ -41,6 +42,9 @@ export default async function AdminHome({
   // Statuses are a mirror of Mslahtk's pipeline; bring them up to date on the
   // way in (throttled to once in five minutes, never blocks the list).
   await sweepStatuses().catch(() => undefined);
+  // Due "not filled yet" reminders go out too, in the background (the server's
+  // own timer does this as well; this covers a server that just woke up).
+  void remindUnfilled().catch(() => undefined);
 
   let page: Awaited<ReturnType<typeof listSubmissions>>;
   try {

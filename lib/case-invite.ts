@@ -38,7 +38,7 @@ import { answersOf, createSubmission } from "./submissions";
 export type Recipient = { name: string; phone: string; email: string };
 
 /** How long a send stays worth reusing: the same as its link. */
-const INVITE_TTL_MS = 14 * 24 * 60 * 60_000;
+export const INVITE_TTL_MS = 14 * 24 * 60 * 60_000;
 
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -158,6 +158,34 @@ export function lastSendLine(sub: Pick<Submission, "source">): string | null {
   return parts.length ? `${parts.join(", ")} ${dmyHm(last.at)}` : null;
 }
 
+// ── Who sent it ─────────────────────────────────────────────────────────────
+
+/**
+ * The person at the agency the customer's file waits on: the Mslahtk user id
+ * of whoever sent the form last, or, on rows filed before the id was kept,
+ * the email (or id) the back-office recorded. Null when nobody is on record.
+ */
+export function senderOf(sub: Pick<Submission, "source">): string | null {
+  const src = objectOf(sub.source);
+  for (const key of ["agencyId", "agency"] as const) {
+    const v = src[key];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return null;
+}
+
+/**
+ * The row's source after a send: who sent it and when, which is what the
+ * "filled" alert and the one-day reminder follow. A send restarts the reminder
+ * clock, so an earlier reminder is forgotten.
+ */
+export function sourceAfterSend(source: unknown, agency: AdminIdentity | null, at: Date = new Date()): Record<string, unknown> {
+  const rest = { ...objectOf(source) };
+  delete rest.remindedAt;
+  const who = agency ? { agency: agency.email || agency.sub, ...(agency.sub && agency.sub !== "unknown" ? { agencyId: agency.sub } : {}) } : {};
+  return { ...rest, ...who, lastSentAt: at.toISOString() };
+}
+
 /** Append what just happened to the row's send log (the last 20 entries are kept). */
 export async function recordSends(submissionId: string, outcomes: ChannelOutcome[], extra: Record<string, unknown> = {}): Promise<void> {
   const row = await db.submission.findUnique({ where: { id: submissionId }, select: { source: true } });
@@ -246,8 +274,9 @@ export async function openInvite(input: {
 
   if (found) {
     // Sending again keeps what the first send carried; what is typed now replaces it, field by field.
+    // The alerts follow whoever sent it last.
     const prefill = { ...prefillOf(found, form), ...typed };
-    const source = { ...objectOf(found.source), inviteKind: kind, ...(hasTyped ? { prefill } : {}) };
+    const source = { ...sourceAfterSend(found.source, agency), inviteKind: kind, ...(hasTyped ? { prefill } : {}) };
     await db.submission.update({
       where: { id: found.id },
       data: { name: to.name || found.name, phone: to.phone || found.phone, email: to.email || found.email, source: source as Prisma.InputJsonObject },
@@ -264,7 +293,7 @@ export async function openInvite(input: {
     phone: to.phone || undefined,
     email: to.email || undefined,
     answers: {},
-    source: { page, invite: true, inviteKind: kind, ...(agency ? { agency: agency.email || agency.sub } : {}), ...(hasTyped ? { prefill: typed } : {}) },
+    source: { ...sourceAfterSend({ page, invite: true, inviteKind: kind }, agency), ...(hasTyped ? { prefill: typed } : {}) },
     invite: true,
   });
   const registration = await registerLead(sub, form, to, page, typed);
@@ -310,13 +339,17 @@ export async function sendInvite(input: {
 }
 
 /** Send an unanswered form again: a fresh link to the SAME file, never a new one. */
-export async function resendInvite(input: { id: string; channels: readonly Channel[]; origin: string }): Promise<SendOutcome> {
+export async function resendInvite(input: { id: string; channels: readonly Channel[]; origin: string; agency?: AdminIdentity | null }): Promise<SendOutcome> {
   const row = await db.submission.findUnique({ where: { id: input.id } });
   if (!row || !row.awaitingCustomer) return { ok: false, error: "הטופס כבר מולא או שהפנייה לא נמצאה" };
   const form = getForm(row.formSlug);
   if (!form) return { ok: false, error: "טופס לא מזוהה" };
   const to: Recipient = { name: row.name ?? "", phone: row.phone ?? "", email: row.email ?? "" };
   if (!to.phone && !to.email) return { ok: false, error: "אין טלפון או דוא״ל בפנייה" };
+  // Whoever sends it again is who the customer's answer is now waiting on.
+  await db.submission
+    .update({ where: { id: row.id }, data: { source: sourceAfterSend(row.source, input.agency ?? null) as Prisma.InputJsonObject } })
+    .catch(() => undefined);
   const kind = objectOf(row.source).inviteKind === "simulator" ? "simulator" : "form";
   // The details the agency filled in at the first send travel again with the fresh link.
   const prefill = prefillOf(row, form);
@@ -451,7 +484,7 @@ export async function retryMslahtkSync(id: string): Promise<{ ok: true; note: st
 // ── Form 3 ──────────────────────────────────────────────────────────────────
 
 /** The signed link that hands a case's form 3 to the customer, stamping the offer as sent. */
-export async function mintAnswerLink(caseId: string, origin: string): Promise<
+export async function mintAnswerLink(caseId: string, origin: string, agency: AdminIdentity | null = null): Promise<
   | { ok: true; url: string; locked: number; prefilled: number; offerId: string; to: Recipient }
   | { ok: false; error: string }
 > {
@@ -459,7 +492,9 @@ export async function mintAnswerLink(caseId: string, origin: string): Promise<
   if (!file) return { ok: false, error: "התיק לא נמצא" };
   const pre = answerPrefill(file);
   if (!pre || !file.latestOffer) return { ok: false, error: "אין הצעה שמורה בתיק. שמרו הצעה (טופס 2) קודם." };
-  const token = mintPrefillToken({ slug: file.def.answer, values: pre.values, locked: pre.locked, caseId: file.request.id });
+  // The link names who made it, so the customer's answer alerts them.
+  const by = agency?.sub && agency.sub !== "unknown" ? agency.sub : undefined;
+  const token = mintPrefillToken({ slug: file.def.answer, values: pre.values, locked: pre.locked, caseId: file.request.id, ...(by ? { by } : {}) });
   await markAnswerLinkSent(file.latestOffer.id).catch(() => undefined);
   return {
     ok: true,
@@ -473,8 +508,8 @@ export async function mintAnswerLink(caseId: string, origin: string): Promise<
 }
 
 /** Mint form 3's link and send it to the phone and email the customer gave in form 1. */
-export async function sendAnswer(input: { caseId: string; channels: readonly Channel[]; origin: string }): Promise<SendOutcome> {
-  const minted = await mintAnswerLink(input.caseId, input.origin);
+export async function sendAnswer(input: { caseId: string; channels: readonly Channel[]; origin: string; agency?: AdminIdentity | null }): Promise<SendOutcome> {
+  const minted = await mintAnswerLink(input.caseId, input.origin, input.agency ?? null);
   if (!minted.ok) return minted;
   const outcomes = await deliver(input.channels, minted.to, answerMessage({ link: minted.url, name: minted.to.name }));
   if (outcomes.length) await recordSends(minted.offerId, outcomes).catch(() => undefined);
