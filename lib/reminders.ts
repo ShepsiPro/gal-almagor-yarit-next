@@ -1,5 +1,7 @@
-// "Not filled yet": one reminder to whoever sent the customer a form, a day
-// after they sent it, if the customer still has not filed it.
+// "Not filled yet": one reminder to the file's owner and whoever sent the
+// customer the form, a day after it was sent, if the customer still has not
+// filed it. (The colleagues it is shared with hear when the customer DOES fill
+// it; the nudge to chase them is for the people the file waits on.)
 //
 // It goes through the same Mslahtk alert as "the customer filled the form", so
 // it lands on that employee's phone and a tap opens the customer's file, where
@@ -13,13 +15,15 @@
 import type { Prisma, Submission } from "@prisma/client";
 import { INVITE_TTL_MS, senderOf } from "./case-invite";
 import { db } from "./db";
-import { mslahtkConfigured, notifyBusiness } from "./mslahtk";
+import { mslahtkConfigured } from "./mslahtk";
+import { alertFile, loadTeam } from "./staff";
 
 /** How long after a send the customer gets before the sender is reminded. */
 export const REMIND_AFTER_MS = 24 * 60 * 60_000;
 const MIN_INTERVAL_MS = 5 * 60_000;
 
-type ReminderRow = Pick<Submission, "id" | "name" | "formTitle" | "mslahtkLeadId" | "source" | "awaitingCustomer" | "parentId">;
+type ReminderRow = Pick<Submission, "id" | "name" | "formTitle" | "mslahtkLeadId" | "source" | "awaitingCustomer" | "parentId"> &
+  Partial<Pick<Submission, "ownerId">>;
 
 function objectOf(v: unknown): Record<string, unknown> {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
@@ -56,27 +60,27 @@ export async function remindUnfilled(opts: { force?: boolean; now?: Date } = {})
       // A wide first cut on the indexed column; dueForReminder has the last word
       // (a form sent again long after it was first sent is still in play).
       where: { awaitingCustomer: true, parentId: null, invitedAt: { gte: new Date(now.getTime() - 4 * INVITE_TTL_MS) } },
-      select: { id: true, name: true, formTitle: true, mslahtkLeadId: true, source: true, awaitingCustomer: true, parentId: true },
+      select: { id: true, name: true, formTitle: true, mslahtkLeadId: true, source: true, awaitingCustomer: true, parentId: true, ownerId: true },
       orderBy: { invitedAt: "asc" },
       take: 200,
     });
-    for (const row of rows) {
-      if (!dueForReminder(row, now)) continue;
-      const told = await notifyBusiness({
-        title: "הלקוח עוד לא מילא את הטופס",
-        body: `${row.name || "לקוח"}: ${row.formTitle}`,
-        to: `/admin/${row.id}`,
-        leadId: row.mslahtkLeadId || undefined,
-        recipient: senderOf(row) ?? undefined,
-      });
-      if (!told.ok && !told.skipped) {
-        // Mslahtk did not take it: no mark, so the next run tries again.
+    const due = rows.filter((row) => dueForReminder(row, now));
+    const team = due.length ? await loadTeam() : undefined;
+    for (const row of due) {
+      const told = await alertFile(
+        { ownerId: row.ownerId ?? null },
+        { title: "הלקוח עוד לא מילא את הטופס", body: `${row.name || "לקוח"}: ${row.formTitle}`, to: `/admin/${row.id}`, leadId: row.mslahtkLeadId || undefined },
+        { withShares: false, also: [senderOf(row)], team },
+      );
+      if (told.failed && !told.told) {
+        // Mslahtk took it for nobody: no mark, so the next run tries again.
+        // (Taken for some: marked, so they are never reminded twice.)
         out.failed += 1;
         console.error("[reminders] notify failed", { id: row.id, error: told.error });
         continue;
       }
       await markReminded(row.id, now);
-      if (told.ok) out.reminded += 1;
+      if (told.told) out.reminded += 1;
     }
   } catch (err) {
     console.error("[reminders] run failed", { error: err instanceof Error ? err.message : String(err) });

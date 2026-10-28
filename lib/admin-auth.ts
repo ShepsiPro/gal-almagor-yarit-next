@@ -27,6 +27,13 @@ export type AdminIdentity = {
   /** Mslahtk project this admin was launched for. */
   pid?: string;
   /**
+   * What they are to the business, as Mslahtk signed it: "owner", "member" (an
+   * employee), "admin" (a Mslahtk operator), "broker", "partner". Decides who
+   * sees every file and who sees their own (lib/staff.ts). Absent on a token
+   * minted before Mslahtk sent it.
+   */
+  role?: string;
+  /**
    * Present on an ENTRY token only: the submission the button sat on, so the
    * click lands on that record instead of the list. Never carried into the
    * session cookie, which is a login, not a bookmark.
@@ -36,6 +43,12 @@ export type AdminIdentity = {
 
 /** A Mslahtk record id: opaque, url-safe, short. Anything else is not put in a path. */
 const RECORD_ID = /^[A-Za-z0-9_-]{1,64}$/;
+/** A role word, as Mslahtk spells them. */
+const ROLE = /^[a-z_]{1,24}$/;
+
+function roleOf(obj: Record<string, unknown>): { role?: string } {
+  return typeof obj.role === "string" && ROLE.test(obj.role) ? { role: obj.role } : {};
+}
 
 /**
  * The secret shared with Mslahtk. It signs the launch tokens Mslahtk mints
@@ -123,14 +136,15 @@ export function verifyEntryToken(token: string | undefined | null): AdminIdentit
     sub: String(obj.sub),
     email: obj.email ? String(obj.email) : undefined,
     pid: obj.pid ? String(obj.pid) : undefined,
+    ...roleOf(obj),
     ...(lid ? { lid } : {}),
   };
 }
 
 export function mintSessionCookie(identity: AdminIdentity): { value: string; maxAge: number } {
-  // Only who and which business. The submission id on an entry token is a
-  // destination for that one click, not something a session should remember.
-  const session = { sub: identity.sub, email: identity.email, pid: identity.pid };
+  // Only who, as what, and which business. The submission id on an entry token
+  // is a destination for that one click, not something a session should remember.
+  const session = { sub: identity.sub, email: identity.email, pid: identity.pid, ...(identity.role ? { role: identity.role } : {}) };
   return {
     value: encode({ ...session, kind: "session", exp: Date.now() + SESSION_TTL_MS }),
     maxAge: Math.floor(SESSION_TTL_MS / 1000),
@@ -140,5 +154,5 @@ export function mintSessionCookie(identity: AdminIdentity): { value: string; max
 export function readSession(cookieValue: string | undefined | null): AdminIdentity | null {
   const obj = decode(cookieValue);
   if (!obj || obj.kind !== "session") return null;
-  return { sub: String(obj.sub), email: obj.email ? String(obj.email) : undefined, pid: obj.pid ? String(obj.pid) : undefined };
+  return { sub: String(obj.sub), email: obj.email ? String(obj.email) : undefined, pid: obj.pid ? String(obj.pid) : undefined, ...roleOf(obj) };
 }

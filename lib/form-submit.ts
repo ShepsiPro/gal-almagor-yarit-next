@@ -54,8 +54,9 @@ import {
 } from "./home-case";
 import { computeHomeQuote, decodeSnapshot, roundShekel } from "./home-quote";
 import { renderEmail, sendMail, type MailAttachment, type Row } from "./mailer";
-import { dashboardLeadUrl, notifyBusiness, setLeadStage, submitLead, updateLead } from "./mslahtk";
+import { dashboardLeadUrl, setLeadStage, submitLead, updateLead } from "./mslahtk";
 import { verifyPrefillToken } from "./prefill";
+import { accessTo, addShares, alertFile, claimIfUnclaimed, filePeople, notYoursMessage, viewerOf } from "./staff";
 import { createSubmission, storeFiles, type IncomingFile, type StoreResult } from "./submissions";
 
 // In-memory throttle. Single container, so this is enough to stop casual abuse;
@@ -291,6 +292,12 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
     // the back-office can attach it by hand.
     if (!parent && isAgency) return bad("התיק שההצעה שייכת אליו לא נמצא");
     if (parent?.awaitingCustomer && isAgency) return bad("הלקוח טרם מילא את טופס 1, ולכן אי אפשר להכין הצעה");
+    if (parent && isAgency && opts.agency) {
+      // Only someone who may work this case saves an offer on it; working a case nobody has takes it.
+      const access = await accessTo(opts.agency, { id: parent.id, parentId: null });
+      if (!access?.see) return bad(access ? notYoursMessage(access) : "התיק שההצעה שייכת אליו לא נמצא", 403);
+      if (access.unclaimed) await claimIfUnclaimed(parent.id, access.viewer, access.team);
+    }
     if (parent) rows.push({ label: "תיק", value: parent.id });
   }
 
@@ -316,11 +323,17 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
 
   // A re-send updates an earlier submission.
   let resentFromId: string | null = null;
+  // The file it updates: the correction stays with the same people.
+  let resentFile: { ownerId: string | null; shares: Array<{ userId: string }> } | null = null;
   if (resentFromRef) {
     const prev = await db.submission
-      .findFirst({ where: { OR: [{ id: resentFromRef }, { mslahtkLeadId: resentFromRef }] }, select: { id: true } })
+      .findFirst({
+        where: { OR: [{ id: resentFromRef }, { mslahtkLeadId: resentFromRef }] },
+        select: { id: true, ownerId: true, shares: { select: { userId: true } } },
+      })
       .catch(() => null);
     resentFromId = prev?.id ?? null;
+    resentFile = prev ? { ownerId: prev.ownerId, shares: prev.shares } : null;
     rows.push({ label: "עדכון לפנייה קודמת", value: prev?.id ?? resentFromRef });
     answers._resentFrom = prev?.id ?? resentFromRef;
   }
@@ -346,6 +359,10 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
       submission = completed;
     }
     if (!submission) {
+      // Whose file it is: an agency form is the agent's own; a correction the
+      // customer filed stays with the file it updates (else with whoever sent the
+      // link); a request that came in by itself is nobody's until someone takes it.
+      const ownerId = isAgency && !parent ? (opts.agency ? viewerOf(opts.agency).id : "") || null : resentFromRef ? (resentFile?.ownerId ?? sent?.by ?? null) : null;
       submission = await createSubmission({
         formSlug: form.slug,
         formTitle: form.title,
@@ -362,7 +379,10 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
         },
         resentFromId,
         parentId: parent?.id ?? null,
+        ownerId,
       });
+      // ...and with the same colleagues, plus whoever sent the link.
+      if (resentFromRef && !parent) await addShares(submission.id, [...(resentFile?.shares ?? []).map((s) => s.userId), sent?.by], ownerId, sent?.by ?? null);
     }
   } catch (err) {
     console.error("[forms] database write failed", { slug, error: err instanceof Error ? err.message : String(err) });
@@ -383,20 +403,26 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
     }
   }
 
-  // Whoever SENT this form hears the customer filled it (below), on their own
-  // phone; the owner sees it as a Live Activity card instead of a second alert.
-  // It waits on Mslahtk like the CRM work does and depends on nothing in it, so
-  // it starts now.
+  // The people on this file hear the customer filled it (below), on their own
+  // phones: its owner, the colleagues it is shared with, and whoever sent it
+  // last; the owner of the business sees it as a Live Activity card instead of
+  // a second alert. It waits on Mslahtk like the CRM work does and depends on
+  // nothing in it, so it starts now.
+  const filled = completed;
   const toldSender =
-    completed && submission
-      ? notifyBusiness({
-          title: "הלקוח מילא את הטופס",
-          body: `${customerName || completed.name || "לקוח"}: ${form.title}`,
-          to: `/admin/${submission.id}`,
-          leadId: completed.mslahtkLeadId || undefined,
-          recipient: senderOf(completed) ?? undefined,
-          ownerCard: true,
-        })
+    filled && submission
+      ? filePeople(filled.id).then((file) =>
+          alertFile(
+            file,
+            {
+              title: "הלקוח מילא את הטופס",
+              body: `${customerName || filled.name || "לקוח"}: ${form.title}`,
+              to: `/admin/${filled.id}`,
+              leadId: filled.mslahtkLeadId || undefined,
+            },
+            { withShares: true, also: [senderOf(filled)], ownerCard: true },
+          ),
+        )
       : null;
 
   // 3. The CRM.
@@ -479,21 +505,24 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
   }
 
   // 3b. The customer answered the offer (form 3): the one moment in a case that
-  // arrives from outside while nobody is looking. Tell whoever sent the answer
-  // link (the link names them; an older link without a name reaches the owner)
-  // on the phone, through Mslahtk; the tap opens this case in the back-office,
-  // signed in. Never blocks the customer's submit: a failure is logged, the row
-  // and the mail below stand either way.
+  // arrives from outside while nobody is looking. Tell the people on the case
+  // (its owner, the colleagues it is shared with, and whoever sent the answer
+  // link; with nobody on it, the owner of the business) on the phone, through
+  // Mslahtk; the tap opens this case in the back-office, signed in. Never
+  // blocks the customer's submit: a failure is logged, the row and the mail
+  // below stand either way.
   if (role === "answer" && parent) {
-    const told = await notifyBusiness({
-      title: "הלקוח השיב להצעה",
-      body: `${parent.name || "לקוח"}: ${decisionLabel(decisionOf(answers))}`,
-      to: `/admin/${parent.id}`,
-      leadId: parent.mslahtkLeadId || undefined,
-      recipient: sent?.by,
-      ownerCard: true,
-    });
-    if (!told.ok && !told.skipped) console.error("[forms] notify failed", { slug, error: told.error });
+    const told = await alertFile(
+      await filePeople(parent.id),
+      {
+        title: "הלקוח השיב להצעה",
+        body: `${parent.name || "לקוח"}: ${decisionLabel(decisionOf(answers))}`,
+        to: `/admin/${parent.id}`,
+        leadId: parent.mslahtkLeadId || undefined,
+      },
+      { withShares: true, also: [sent?.by], ownerCard: true },
+    );
+    if (told.failed) console.error("[forms] notify failed", { slug, error: told.error });
   }
 
   // 3c. The customer filled a form the agency SENT: the one thing the agency is
@@ -502,22 +531,24 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
   // send, so without this nothing would tell anyone.) Never blocks the submit.
   if (toldSender) {
     const told = await toldSender;
-    if (!told.ok && !told.skipped) console.error("[forms] notify failed", { slug, error: told.error });
+    if (told.failed) console.error("[forms] notify failed", { slug, error: told.error });
   }
 
-  // 3d. The customer filed a form the agency sent AGAIN to correct it (a link
-  // from the back-office that names who made it): that person hears it too.
-  // This one files a new lead, so the owner already has Mslahtk's own new-lead
-  // alert for it: no card on top.
-  if (!completed && resentFromRef && sent?.by && submission) {
-    const told = await notifyBusiness({
-      title: "הלקוח מילא את הטופס",
-      body: `${customerName || "לקוח"}: ${form.title}`,
-      to: `/admin/${submission.id}`,
-      leadId: filedLeadId,
-      recipient: sent.by,
-    });
-    if (!told.ok && !told.skipped) console.error("[forms] notify failed", { slug, error: told.error });
+  // 3d. The customer filed a form the agency sent AGAIN to correct it: the
+  // people on the file it updates hear it too (it carries them over, plus
+  // whoever sent the link). This one files a new lead, so the owner of the
+  // business already has Mslahtk's own new-lead alert for it: no card on top,
+  // and nothing at all when nobody is on the file.
+  if (!completed && resentFromRef && submission && !parent) {
+    const file = await filePeople(submission.id);
+    if (file.ownerId || file.shares?.length || sent?.by) {
+      const told = await alertFile(
+        file,
+        { title: "הלקוח מילא את הטופס", body: `${customerName || "לקוח"}: ${form.title}`, to: `/admin/${submission.id}`, leadId: filedLeadId },
+        { withShares: true, also: [sent?.by] },
+      );
+      if (told.failed) console.error("[forms] notify failed", { slug, error: told.error });
+    }
   }
 
   // 4. The notification. Only for what a customer sent: the agency does not

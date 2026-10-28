@@ -27,6 +27,8 @@ export type NewSubmission = {
    * is opened now, empty, and their answers complete it later (lib/case-invite).
    */
   invite?: boolean;
+  /** Whose file it is (a Mslahtk user id); none for a request that came in by itself. */
+  ownerId?: string | null;
 };
 
 export async function createSubmission(input: NewSubmission): Promise<Submission> {
@@ -41,6 +43,8 @@ export async function createSubmission(input: NewSubmission): Promise<Submission
       source: (input.source ?? undefined) as Prisma.InputJsonObject | undefined,
       resentFromId: input.resentFromId || null,
       parentId: input.parentId || null,
+      // Ownership lives on the case, never on an offer or an answer inside it.
+      ownerId: input.parentId ? null : input.ownerId || null,
       ...(input.invite ? { invitedAt: new Date(), awaitingCustomer: true } : {}),
     },
   });
@@ -92,12 +96,13 @@ export async function storeFiles(submissionId: string, files: IncomingFile[]): P
   return out;
 }
 
-export async function listSubmissions(opts: { limit?: number; offset?: number; topLevel?: boolean } = {}) {
+export async function listSubmissions(opts: { limit?: number; offset?: number; topLevel?: boolean; where?: Prisma.SubmissionWhereInput } = {}) {
   const take = Math.min(Math.max(opts.limit ?? 50, 1), 100);
   const skip = Math.max(opts.offset ?? 0, 0);
   // topLevel: one row per customer case. An offer or an answer lives inside
-  // its request (the case card shows it), not as a row of its own.
-  const where = opts.topLevel ? { parentId: null } : {};
+  // its request (the case card shows it), not as a row of its own. `where`
+  // narrows it further (a person's section, lib/staff.ts).
+  const where: Prisma.SubmissionWhereInput = { ...(opts.topLevel ? { parentId: null } : {}), ...(opts.where ?? {}) };
   const [items, total] = await Promise.all([
     db.submission.findMany({
       where,
@@ -107,11 +112,16 @@ export async function listSubmissions(opts: { limit?: number; offset?: number; t
       include: {
         _count: { select: { files: true } },
         children: { select: { formSlug: true, answers: true, createdAt: true }, orderBy: { createdAt: "asc" } },
+        shares: { select: { userId: true, sharedBy: true } },
       },
     }),
     db.submission.count({ where }),
   ]);
   return { items, total, limit: take, offset: skip };
+}
+
+export async function countSubmissions(where: Prisma.SubmissionWhereInput): Promise<number> {
+  return db.submission.count({ where });
 }
 
 /** By this site's own id, or by the Mslahtk lead id a launch token carries. */

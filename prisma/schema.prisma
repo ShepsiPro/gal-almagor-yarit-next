@@ -67,6 +67,15 @@ model Submission {
   /// land on THIS row and THIS lead, never on a second pair.
   awaitingCustomer Boolean   @default(false)
 
+  /// Whose customer this is at the agency: a Mslahtk user id (the launch
+  /// token's `sub`). Set when an employee sends the form, works the file, takes
+  /// it or is given it. Null for a request that came in from the site by itself:
+  /// every employee sees those until someone takes one (lib/staff.ts). Only on
+  /// a top-level row; an offer or an answer belongs to its case's owner.
+  ownerId String?
+  /// The colleagues the file was shared with: they see it and hear about it too.
+  shares  SubmissionShare[]
+
   files     SubmissionFile[]
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
@@ -75,6 +84,42 @@ model Submission {
   @@index([formSlug, createdAt])
   @@index([phone])
   @@index([parentId])
+  @@index([ownerId, createdAt])
+}
+
+/// One colleague a customer's file was shared with.
+model SubmissionShare {
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  /// The colleague's Mslahtk user id.
+  userId       String
+  /// Who shared it with them (a Mslahtk user id).
+  sharedBy     String?
+  createdAt    DateTime   @default(now())
+
+  @@id([submissionId, userId])
+  @@index([userId])
+}
+
+/// The agency's people: as Mslahtk last listed them (its team route) and as they
+/// signed in here. Gives the screens their names, and says who a file can be
+/// shared with or handed to (lib/staff.ts).
+model StaffMember {
+  /// Mslahtk user id.
+  id         String    @id
+  name       String?
+  email      String?
+  /// "owner" or "staff" as Mslahtk lists them, "admin" for a Mslahtk operator,
+  /// "unknown" for someone seen signing in before Mslahtk said who they are.
+  role       String    @default("unknown")
+  /// On Mslahtk's latest list. An employee removed there is not, and their open
+  /// files go back to everyone until someone takes them.
+  active     Boolean   @default(true)
+  /// When Mslahtk's list last named them; null for someone only seen signing in.
+  syncedAt   DateTime?
+  lastSeenAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 /// A document attached to a submission. The bytes live in storage under

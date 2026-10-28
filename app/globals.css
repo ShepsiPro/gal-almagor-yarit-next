@@ -2601,6 +2601,48 @@ input.fform__file-input {
 .adm__send .flinks { margin-top: 0; }
 @media (min-width: 900px) { .adm__send { padding: 24px 28px; } }
 
+/* ── Whose files: sections, owner lines, the people panel (lib/staff.ts) ────── */
+.adm__views { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.adm__view {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: 0 1 auto;
+  min-height: 40px; padding: 8px 14px; border-radius: 10px; border: 1px solid #e4e7ec; background: #fff;
+  font-size: 14px; font-weight: 600; color: #475467; text-decoration: none; white-space: nowrap;
+}
+.adm__view:hover { color: #101828; border-color: #c9d1dc; }
+.adm__view.is-active { background: #304054; border-color: #304054; color: #fff; }
+.adm__viewcount {
+  min-width: 22px; padding: 1px 7px; border-radius: 999px; background: #f2f4f7; color: #475467;
+  font-size: 12px; font-weight: 700; text-align: center;
+}
+.adm__view.is-active .adm__viewcount { background: rgba(255, 255, 255, .18); color: #fff; }
+.adm__people { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+.adm__person {
+  padding: 5px 12px; border-radius: 999px; border: 1px solid #e4e7ec; background: #fff;
+  font-size: 13px; font-weight: 600; color: #475467; text-decoration: none; white-space: nowrap;
+}
+.adm__person:hover { border-color: #c9d1dc; color: #101828; }
+.adm__person.is-active { background: #e6f1fb; border-color: #b2d4f5; color: #1849a9; }
+.adm__owner {
+  display: inline-flex; align-items: flex-start; gap: 5px; margin-top: 2px; font-size: 12px; line-height: 1.4; color: #667085;
+  max-width: 100%; overflow-wrap: anywhere;
+}
+.adm__owner svg { flex: 0 0 auto; margin-top: 2px; }
+.adm__owner--mine { color: #067647; }
+.adm__owner--shared { color: #6941c6; }
+.adm__owner--open { color: #b54708; font-weight: 600; }
+.adm__people-card { display: grid; gap: 8px; }
+.adm__people-head { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; }
+.adm__people-who { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: #344054; }
+.adm__people-who svg { color: #667085; flex: 0 0 auto; }
+.adm__people-line { display: flex; align-items: center; gap: 6px; }
+.adm__people-line svg { flex: 0 0 auto; }
+.adm__people-edit { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid #f2f4f7; }
+.adm__pick--person { grid-template-columns: auto 1fr; }
+@media (max-width: 599px) {
+  .adm__people-head .adm__linkbar { width: 100%; }
+  .adm__people-head .adm__btn { flex: 1 1 auto; min-height: 40px; }
+}
+
 /* ── Day-first date box (components/DateField.tsx) ────────────────────────────
    Plain text so it reads dd/mm/yyyy in any browser region; the native calendar
    sits behind a button and is never shown itself. */

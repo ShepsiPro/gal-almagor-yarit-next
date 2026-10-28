@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { accessTo } from "@/lib/staff";
 import { contentDisposition, readObject, signedReadUrl } from "@/lib/storage";
 import { currentAdmin } from "../../session";
 
@@ -20,8 +21,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ file
   if (!admin) return new NextResponse(null, { status: 404 });
 
   const { fileId } = await params;
-  const file = await db.submissionFile.findUnique({ where: { id: fileId } });
+  const file = await db.submissionFile.findUnique({ where: { id: fileId }, include: { submission: { select: { id: true, parentId: true } } } });
   if (!file) return new NextResponse(null, { status: 404 });
+  // A document is as private as the customer's file it belongs to: someone
+  // else's file answers the same 404 as a document that does not exist.
+  if (!(await accessTo(admin, file.submission))?.see) return new NextResponse(null, { status: 404 });
 
   const download = req.nextUrl.searchParams.get("download") === "1";
   const noStore = { "Cache-Control": "private, no-store" };

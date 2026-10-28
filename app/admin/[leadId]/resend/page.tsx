@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import ResendBuilder, { type ResendField } from "@/components/ResendBuilder";
 import { buildResendLink } from "../../actions";
 import { displayAnswer, getForm, isFieldVisible } from "@/lib/forms";
+import { accessTo } from "@/lib/staff";
 import { answersOf, getSubmission } from "@/lib/submissions";
 import { requireAdmin } from "../../session";
 
@@ -16,6 +17,8 @@ export default async function ResendPage({ params }: { params: Promise<{ leadId:
   const sub = await getSubmission(leadId);
   if (!sub) notFound();
   if (sub.id !== leadId) redirect(`/admin/${sub.id}/resend`);
+  // Someone else's file: its page says whose it is.
+  if (!(await accessTo(admin, sub))?.see) redirect(`/admin/${sub.id}`);
 
   const form = getForm(sub.formSlug);
   if (!form) notFound();

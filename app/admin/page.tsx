@@ -6,7 +6,8 @@ import AdminIcon from "@/components/AdminIcon";
 import StatusChip from "@/components/StatusChip";
 import { sweepStatuses } from "@/lib/mslahtk-sync";
 import { remindUnfilled } from "@/lib/reminders";
-import { listSubmissions } from "@/lib/submissions";
+import { SECTION_LABEL, colleagues, loadTeam, nameOf, ownerLine, sectionWhere, sectionsFor, viewerOf, type Section } from "@/lib/staff";
+import { countSubmissions, listSubmissions } from "@/lib/submissions";
 import { requireAdmin } from "./session";
 
 export const metadata = { robots: { index: false, follow: false } };
@@ -28,15 +29,25 @@ function whenHe(value: Date | string): string {
   return dmyHm(d);
 }
 
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+const RECORD_ID = /^[A-Za-z0-9_:.@-]{1,128}$/;
+
+/** What a section is for, under its title. */
+const SECTION_NOTE: Record<Section, string> = {
+  mine: "טפסים ששלחתם ללקוחות, פניות שלקחתם לטיפול, ומה ששיתפו איתכם.",
+  open: "פניות שהגיעו מהאתר ועוד לא שויכו לאף אחד. פנייה שלוקחים לטיפול עוברת לרשימה של מי שלקח אותה.",
+  all: "כל פנייה, וכל טופס שנשלח ללקוח, נשמרים כאן וגם במסלחתק.",
+};
+
 export default async function AdminHome({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireAdmin("/admin");
+  const admin = await requireAdmin("/admin");
 
   const q = await searchParams;
-  const offset = Math.max(Number(Array.isArray(q.offset) ? q.offset[0] : q.offset) || 0, 0);
+  const offset = Math.max(Number(one(q.offset)) || 0, 0);
   const lookup = typeof q.lookup === "string" ? q.lookup.slice(0, 64) : "";
 
   // Statuses are a mirror of Mslahtk's pipeline; bring them up to date on the
@@ -46,10 +57,26 @@ export default async function AdminHome({
   // own timer does this as well; this covers a server that just woke up).
   void remindUnfilled().catch(() => undefined);
 
+  // Whose list: each employee works their own section; the owner of the business sees everyone's.
+  const viewer = viewerOf(admin);
+  const { initial, allowed } = sectionsFor(viewer);
+  const asked = one(q.view) as Section | undefined;
+  const section: Section = asked && allowed.includes(asked) ? asked : initial;
+  const whoRaw = one(q.who) ?? "";
+  const who = section === "all" && viewer.seesAll && RECORD_ID.test(whoRaw) ? whoRaw : "";
+
   let page: Awaited<ReturnType<typeof listSubmissions>>;
+  let counts: Partial<Record<Section, number>> = {};
+  let team: Awaited<ReturnType<typeof loadTeam>>;
   try {
+    team = await loadTeam();
     // One row per customer case: an offer or an answer shows inside its request.
-    page = await listSubmissions({ limit: PAGE, offset, topLevel: true });
+    const [list, ...tallies] = await Promise.all([
+      listSubmissions({ limit: PAGE, offset, where: sectionWhere(section, viewer, team, who) }),
+      ...allowed.map((s) => countSubmissions(sectionWhere(s, viewer, team))),
+    ]);
+    page = list;
+    counts = Object.fromEntries(allowed.map((s, i) => [s, tallies[i]]));
   } catch (err) {
     return (
       <main className="adm__main">
@@ -64,6 +91,12 @@ export default async function AdminHome({
   }
 
   const shown = offset + page.items.length;
+  const hrefFor = (s: Section, extra: Record<string, string | number> = {}) => {
+    const p = new URLSearchParams({ view: s });
+    for (const [k, v] of Object.entries(extra)) if (v !== "" && v !== 0) p.set(k, String(v));
+    return `/admin?${p.toString()}`;
+  };
+  const people = section === "all" && viewer.seesAll ? colleagues(team) : [];
 
   return (
     <main className="adm__main adm__main--wide">
@@ -71,10 +104,33 @@ export default async function AdminHome({
         <div>
           <h1 className="adm__title">פניות וטפסים שנשלחו</h1>
           <p className="adm__muted">
-            {page.total === 1 ? "פנייה אחת" : `${page.total} פניות`}. כל פנייה, וכל טופס שנשלח ללקוח, נשמרים כאן וגם במסלחתק.
+            {page.total === 1 ? "פנייה אחת" : `${page.total} פניות`}. {SECTION_NOTE[section]}
           </p>
         </div>
       </div>
+
+      <nav className="adm__views" aria-label="הפניות של מי">
+        {allowed.map((s) => (
+          <Link key={s} href={hrefFor(s)} className={`adm__view${s === section ? " is-active" : ""}`} aria-current={s === section ? "page" : undefined}>
+            <AdminIcon name={s === "mine" ? "user" : s === "open" ? "inbox" : "users"} size={15} />
+            <span>{SECTION_LABEL[s]}</span>
+            <span className="adm__viewcount">{counts[s] ?? 0}</span>
+          </Link>
+        ))}
+      </nav>
+
+      {people.length > 1 && (
+        <nav className="adm__people" aria-label="לפי עובד/ת">
+          <Link href={hrefFor("all")} className={`adm__person${!who ? " is-active" : ""}`}>
+            כולם
+          </Link>
+          {people.map((p) => (
+            <Link key={p.id} href={hrefFor("all", { who: p.id })} className={`adm__person${who === p.id ? " is-active" : ""}`}>
+              {p.name || p.email || "עובד/ת"}
+            </Link>
+          ))}
+        </nav>
+      )}
 
       {lookup && (
         <div className="adm__card adm__card--warn adm__card--tight">
@@ -88,12 +144,33 @@ export default async function AdminHome({
       {page.items.length === 0 ? (
         <div className="adm__card adm__empty">
           <AdminIcon name="inbox" size={28} />
-          <p className="adm__empty-title">עדיין לא התקבלו פניות</p>
-          <p className="adm__muted">פנייה מהאתר תופיע כאן ברגע שתתקבל, וטופס שתשלחו ללקוח יופיע כאן כבר מרגע השליחה.</p>
-          <Link className="adm__btn adm__btn--primary adm__btn--icon" href="/admin/send">
-            <AdminIcon name="send" />
-            שליחת טופס ללקוח
-          </Link>
+          {section === "mine" ? (
+            <>
+              <p className="adm__empty-title">עדיין אין לך פניות</p>
+              <p className="adm__muted">טופס שתשלחו ללקוח יופיע כאן מרגע השליחה, וכך גם פנייה שתיקחו לטיפול או שעמית ישתף איתכם.</p>
+            </>
+          ) : section === "open" ? (
+            <>
+              <p className="adm__empty-title">אין פניות שממתינות לשיוך</p>
+              <p className="adm__muted">פנייה שמגיעה מהאתר בלי שנשלח טופס מופיעה כאן לכולם, עד שמישהו לוקח אותה לטיפול.</p>
+            </>
+          ) : (
+            <>
+              <p className="adm__empty-title">{who ? `אין פניות אצל ${nameOf(team, who)}` : "עדיין לא התקבלו פניות"}</p>
+              <p className="adm__muted">פנייה מהאתר תופיע כאן ברגע שתתקבל, וטופס שתשלחו ללקוח יופיע כאן כבר מרגע השליחה.</p>
+            </>
+          )}
+          <div className="adm__linkbar">
+            <Link className="adm__btn adm__btn--primary adm__btn--icon" href="/admin/send">
+              <AdminIcon name="send" />
+              שליחת טופס ללקוח
+            </Link>
+            {section === "mine" && (counts.open ?? 0) > 0 && (
+              <Link className="adm__btn" href={hrefFor("open")}>
+                {(counts.open ?? 0) === 1 ? "פנייה אחת ממתינה לשיוך" : `${counts.open} פניות ממתינות לשיוך`}
+              </Link>
+            )}
+          </div>
         </div>
       ) : (
         <>
@@ -111,6 +188,7 @@ export default async function AdminHome({
               const caseDef = caseOpenedBy(form);
               const caseStage = caseDef ? caseStageOf(caseDef, sub.children, sub.awaitingCustomer) : null;
               const stageKey = caseStage ? (caseStage.stage === "answered" ? caseStage.decision ?? "answered" : caseStage.stage) : null;
+              const owner = ownerLine(sub, viewer, team);
               return (
                 <li key={sub.id} className="adm__row">
                   <Link className="adm__rowlink" href={`/admin/${sub.id}`}>
@@ -121,6 +199,10 @@ export default async function AdminHome({
                           {sub.phone}
                         </span>
                       )}
+                      <span className={`adm__owner adm__owner--${owner.kind}`}>
+                        <AdminIcon name={owner.kind === "shared" || sub.shares.length ? "users" : "user"} size={13} />
+                        {owner.text}
+                      </span>
                     </span>
                     <span className="adm__cell adm__cell--form">
                       <span>{form?.title || sub.formTitle}</span>
@@ -156,7 +238,7 @@ export default async function AdminHome({
       {(offset > 0 || shown < page.total) && (
         <nav className="adm__pager" aria-label="עמודים">
           {offset > 0 && (
-            <Link className="adm__btn" href={`/admin?offset=${Math.max(offset - PAGE, 0)}`}>
+            <Link className="adm__btn" href={hrefFor(section, { who, offset: Math.max(offset - PAGE, 0) })}>
               הקודם
             </Link>
           )}
@@ -164,7 +246,7 @@ export default async function AdminHome({
             {offset + 1}-{shown} מתוך {page.total}
           </span>
           {shown < page.total && (
-            <Link className="adm__btn" href={`/admin?offset=${offset + PAGE}`}>
+            <Link className="adm__btn" href={hrefFor(section, { who, offset: offset + PAGE })}>
               הבא
             </Link>
           )}
