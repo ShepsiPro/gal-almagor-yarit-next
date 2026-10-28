@@ -56,7 +56,7 @@ import { computeHomeQuote, decodeSnapshot, roundShekel } from "./home-quote";
 import { renderEmail, sendMail, type MailAttachment, type Row } from "./mailer";
 import { dashboardLeadUrl, setLeadStage, submitLead, updateLead } from "./mslahtk";
 import { verifyPrefillToken } from "./prefill";
-import { accessTo, addShares, alertFile, claimIfUnclaimed, filePeople, notYoursMessage, viewerOf } from "./staff";
+import { accessTo, addShares, alertFile, claimIfUnclaimed, filePeople, notYoursMessage, pushLeadOwner, viewerOf } from "./staff";
 import { createSubmission, storeFiles, type IncomingFile, type StoreResult } from "./submissions";
 
 // In-memory throttle. Single container, so this is enough to stop casual abuse;
@@ -495,6 +495,8 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
             : { mslahtkError: lead.skipped ? null : lead.error },
         })
         .catch((err) => console.error("[forms] could not record the lead link", { submissionId, error: err instanceof Error ? err.message : String(err) }));
+      // A file with an owner (the employee who sent the form) is their lead in Mslahtk too.
+      if (lead.ok) void pushLeadOwner(submissionId);
     }
     if (lead.ok) {
       rows.push({ label: "כרטיס לקוח", value: dashboardLeadUrl(lead.leadId) });

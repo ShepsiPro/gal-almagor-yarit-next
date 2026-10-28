@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { connectionSecret } from "@/lib/admin-auth";
 import { describeMslahtk, listLeads } from "@/lib/mslahtk";
 import { sweepStatuses } from "@/lib/mslahtk-sync";
+import { syncLeadOwners } from "@/lib/staff";
 import { checkBucket, describeStorage, r2Configured } from "@/lib/storage";
 
 export const runtime = "nodejs";
@@ -38,6 +39,7 @@ export async function GET(req: NextRequest) {
       const page = await listLeads({ limit: 1, timeoutMs: 6_000 });
       probe.mslahtk = { ok: true, totalLeads: page.total };
       probe.sweep = await sweepStatuses({ force: true });
+      probe.leadOwners = await syncLeadOwners({ force: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       probe.mslahtk = { ok: false, message: msg, hint: /403/.test(msg) ? "token lacks leads:fields (site-backend preset)" : /401/.test(msg) ? "token invalid or revoked" : undefined };
