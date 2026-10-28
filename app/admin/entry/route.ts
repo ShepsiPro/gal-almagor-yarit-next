@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_COOKIE, mintSessionCookie, verifyEntryToken } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { publicOrigin } from "@/lib/request";
+import { noteSignIn } from "@/lib/staff";
 
 export const runtime = "nodejs";
 
@@ -32,6 +33,9 @@ export async function GET(req: NextRequest) {
     : identity.lid
       ? await landingFor(identity.lid)
       : "/admin";
+
+  // Who came in, so colleagues can share files with them (and the team list refreshes).
+  await noteSignIn(identity);
 
   const res = NextResponse.redirect(new URL(dest, origin));
   const { value, maxAge } = mintSessionCookie(identity);

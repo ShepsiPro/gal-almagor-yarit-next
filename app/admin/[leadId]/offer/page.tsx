@@ -5,6 +5,7 @@ import FormRenderer from "@/components/FormRenderer";
 import { getForm } from "@/lib/forms";
 import { loadCase, offerPrefill } from "@/lib/home-case";
 import { encodeSnapshot, roundShekel } from "@/lib/home-quote";
+import { accessTo } from "@/lib/staff";
 import { answersOf } from "@/lib/submissions";
 import { requireAdmin } from "../../session";
 
@@ -24,6 +25,8 @@ export default async function OfferPage({ params }: { params: Promise<{ leadId: 
 
   const file = await loadCase(leadId);
   if (!file) notFound();
+  // Someone else's case: its page says whose it is.
+  if (!(await accessTo(admin, file.request))?.see) redirect(`/admin/${file.request.id}`);
   // Form 1 was sent and not filled yet: there is no request to build an offer from.
   if (file.stage === "invited") redirect(`/admin/${file.request.id}`);
   const requestForm = getForm(file.request.formSlug);

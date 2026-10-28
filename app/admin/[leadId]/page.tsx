@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { SubmissionFile } from "@prisma/client";
+import AdminIcon from "@/components/AdminIcon";
 import AnsweredForm from "@/components/AnsweredForm";
 import CasePanel from "@/components/CasePanel";
+import FilePeople from "@/components/FilePeople";
 import InviteResend from "@/components/InviteResend";
 import MslahtkSyncNotice from "@/components/MslahtkSyncNotice";
 import StatusChip from "@/components/StatusChip";
@@ -12,9 +14,10 @@ import { allFields, formAudience, formatBytes, getForm } from "@/lib/forms";
 import { whenHe } from "@/lib/format";
 import { loadCase, parentCaseId } from "@/lib/home-case";
 import { dashboardLeadUrl } from "@/lib/mslahtk";
+import { accessTo, colleagues, nameOf, notYoursMessage } from "@/lib/staff";
 import { answersOf, getSubmission } from "@/lib/submissions";
 import { requireAdmin } from "../session";
-import { resendToCustomer, retryMslahtk } from "../actions";
+import { assignFile, resendToCustomer, retryMslahtk, shareFile, takeFile } from "../actions";
 
 export const metadata = { robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -70,6 +73,28 @@ export default async function SubmissionDetail({ params }: { params: Promise<{ l
   // Reached by the Mslahtk lead id (a launch token, an older link): settle on
   // the site's own id so every later link from this page is canonical.
   if (sub.id !== leadId) redirect(`/admin/${sub.id}`);
+
+  // Each employee opens their own files, the ones shared with them and the ones
+  // nobody has taken yet; the owner of the business opens all of them.
+  const access = await accessTo(admin, sub);
+  if (!access) notFound();
+  if (!access.see) {
+    return (
+      <main className="adm__main">
+        <Link className="adm__back" href="/admin">
+          → לפניות שלי
+        </Link>
+        <div className="adm__card adm__empty">
+          <AdminIcon name="user" size={28} />
+          <p className="adm__empty-title">הפנייה הזו לא ברשימה שלך</p>
+          <p className="adm__muted">{notYoursMessage(access)}</p>
+        </div>
+      </main>
+    );
+  }
+  const { viewer, team, root } = access;
+  const person = (id: string) => ({ id, name: nameOf(team, id) });
+  const sharedWithMe = root.shares.find((s) => s.userId === viewer.id && root.ownerId !== viewer.id);
 
   const fields = answersOf(sub);
   const form = getForm(sub.formSlug);
@@ -142,6 +167,23 @@ export default async function SubmissionDetail({ params }: { params: Promise<{ l
         )}
         <StatusChip leadId={sub.mslahtkLeadId} status={sub.mslahtkStatus} />
       </div>
+
+      {!sub.parentId && (
+        <FilePeople
+          fileId={root.id}
+          viewerId={viewer.id}
+          owner={root.ownerId ? person(root.ownerId) : null}
+          unclaimed={access.unclaimed}
+          ownerLeft={access.unclaimed && Boolean(root.ownerId)}
+          shares={root.shares.map((s) => person(s.userId))}
+          sharedBy={sharedWithMe?.sharedBy && sharedWithMe.sharedBy !== viewer.id ? nameOf(team, sharedWithMe.sharedBy) : null}
+          canManage={access.manage}
+          team={colleagues(team).map((p) => person(p.id))}
+          take={takeFile}
+          assign={assignFile}
+          share={shareFile}
+        />
+      )}
 
       {!sub.parentId && sub.mslahtkError && <MslahtkSyncNotice submissionId={sub.id} error={sub.mslahtkError} retry={retryMslahtk} />}
 

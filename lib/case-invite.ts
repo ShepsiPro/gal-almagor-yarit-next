@@ -33,6 +33,7 @@ import { sendWhatsappText, setLeadStage, submitLead, updateLeadFields, type What
 import { phoneKey, toE164, waDigits } from "./phone";
 import { mintPrefillToken } from "./prefill";
 import { CHANNELS, type Channel, type ChannelOutcome, type Registration, type SendOutcome } from "./send-types";
+import { claimIfUnclaimed, joinFile, viewerOf } from "./staff";
 import { answersOf, createSubmission } from "./submissions";
 
 export type Recipient = { name: string; phone: string; email: string };
@@ -281,6 +282,13 @@ export async function openInvite(input: {
       where: { id: found.id },
       data: { name: to.name || found.name, phone: to.phone || found.phone, email: to.email || found.email, source: source as Prisma.InputJsonObject },
     });
+    // The customer's file stays one file. A colleague who sends them the same
+    // form again is now working it too: it is shared with them (or, if nobody
+    // has it, it is theirs), so it shows in their section and its news reaches them.
+    if (agency) {
+      const viewer = viewerOf(agency);
+      if (!(await claimIfUnclaimed(found.id, viewer))) await joinFile(found.id, viewer, found.ownerId);
+    }
     // A file whose lead never got created (Mslahtk was down) gets another try.
     const registration = found.mslahtkLeadId ? undefined : await registerLead(found, form, to, page, prefill);
     return { id: found.id, reused: true, registration, prefill };
@@ -295,6 +303,8 @@ export async function openInvite(input: {
     answers: {},
     source: { ...sourceAfterSend({ page, invite: true, inviteKind: kind }, agency), ...(hasTyped ? { prefill: typed } : {}) },
     invite: true,
+    // The customer is the sender's: the file opens in their section.
+    ownerId: agency ? viewerOf(agency).id || null : null,
   });
   const registration = await registerLead(sub, form, to, page, typed);
   return { id: sub.id, reused: false, registration, prefill: typed };

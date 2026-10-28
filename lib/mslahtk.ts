@@ -274,6 +274,46 @@ export async function notifyBusiness(input: {
   }
 }
 
+/** One person at the business, as Mslahtk's team route lists them. */
+export type TeamRow = { userId: string; name: string | null; email: string | null; role: "owner" | "staff" };
+export type TeamResult = { ok: true; people: TeamRow[] } | { ok: false; error: string; status?: number; skipped?: boolean };
+
+const USER_ID = /^[A-Za-z0-9_:.@-]{1,128}$/;
+
+/**
+ * GET .../team: the owner and the employees `notifyBusiness` can reach (active,
+ * with the leads area), by Mslahtk user id, with their names. Same permission as
+ * notifying them (`owner:notify`). A 404 is a Mslahtk from before the route
+ * existed. Never throws.
+ */
+export async function fetchTeam(): Promise<TeamResult> {
+  const cfg = mslahtkConfig();
+  if (!mslahtkConfigured()) return { ok: false, error: "Mslahtk is not configured", skipped: true };
+  try {
+    const res = await fetch(`${cfg.api}/service/sites/${encodeURIComponent(cfg.projectId)}/team`, {
+      headers: { Authorization: `Bearer ${cfg.serviceToken}` },
+      signal: AbortSignal.timeout(5000),
+      cache: "no-store",
+    });
+    const json = (await res.json().catch(() => ({}))) as { people?: unknown; message?: string };
+    if (!res.ok) return { ok: false, error: json.message || `Mslahtk responded ${res.status}`, status: res.status };
+    const people: TeamRow[] = [];
+    for (const raw of Array.isArray(json.people) ? json.people : []) {
+      const p = raw as Record<string, unknown>;
+      if (typeof p?.userId !== "string" || !USER_ID.test(p.userId)) continue;
+      people.push({
+        userId: p.userId,
+        name: typeof p.name === "string" && p.name.trim() ? p.name.trim().slice(0, 120) : null,
+        email: typeof p.email === "string" && p.email.includes("@") ? p.email.trim().toLowerCase().slice(0, 200) : null,
+        role: p.role === "owner" ? "owner" : "staff",
+      });
+    }
+    return { ok: true, people };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 /**
  * PATCH .../leads/:id: merge `fields` onto the lead (keys [A-Za-z0-9_.-], values
  * up to 2000 chars, 50 per call) and optionally replace its note. Needs the
