@@ -73,6 +73,10 @@ model Submission {
   /// every employee sees those until someone takes one (lib/staff.ts). Only on
   /// a top-level row; an offer or an answer belongs to its case's owner.
   ownerId String?
+  /// The owner its Mslahtk lead was last given as assignee ("" = nobody; null =
+  /// never sent). Mslahtk can limit an employee to their own leads by that
+  /// assignee; a change of owner here is sent there once (lib/staff.ts).
+  mslahtkOwnerSynced String?
   /// The colleagues the file was shared with: they see it and hear about it too.
   shares  SubmissionShare[]
 

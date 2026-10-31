@@ -10,7 +10,7 @@ import { mintPrefillToken } from "@/lib/prefill";
 import { publicOrigin } from "@/lib/request";
 import type { SendOutcome } from "@/lib/send-types";
 import { SITE } from "@/lib/site";
-import { accessToId, alertColleague, claimIfUnclaimed, colleagues, nameOf, notYoursMessage, type FileAccess } from "@/lib/staff";
+import { accessToId, alertColleague, claimIfUnclaimed, colleagues, nameOf, notYoursMessage, pushLeadOwner, type FileAccess } from "@/lib/staff";
 import { answersOf, getSubmission } from "@/lib/submissions";
 
 export type ResendResult = { url: string; locked: number; prefilled: number } | { error: string };
@@ -221,6 +221,8 @@ export async function assignFile(fileId: string, userId: string): Promise<People
     // The new owner has it as their own now, not as a share.
     db.submissionShare.deleteMany({ where: { submissionId: access.root.id, userId: target.id } }),
   ]);
+  // Mslahtk's Leads page follows: the lead is theirs there too.
+  void pushLeadOwner(access.root.id);
   if (target.id !== access.viewer.id) {
     await alertColleague(
       target.id,
