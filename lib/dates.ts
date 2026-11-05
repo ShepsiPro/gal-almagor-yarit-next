@@ -95,6 +95,24 @@ export function policyEndIso(startIso: string): string {
   return end.toISOString().slice(0, 10);
 }
 
+/**
+ * Whole months from one ISO day to another: a month counts once its day of the
+ * month comes round again (born on the 10th: on each 10th). Divide by 12 for
+ * completed years. Negative when `onIso` is earlier, NaN for a non-date.
+ */
+export function completedMonths(fromIso: string, onIso: string): number {
+  const a = ISO.exec(fromIso);
+  const b = ISO.exec(onIso);
+  if (!a || !b) return NaN;
+  const months = (Number(b[1]) - Number(a[1])) * 12 + (Number(b[2]) - Number(a[2]));
+  return Number(b[3]) < Number(a[3]) ? months - 1 : months;
+}
+
+/** Age in completed years on a day: 37 until the 38th birthday. */
+export function completedYears(birthIso: string, onIso: string): number {
+  return Math.floor(completedMonths(birthIso, onIso) / 12);
+}
+
 // ── Instants, read in Israel ────────────────────────────────────────────────
 
 const parts = new Intl.DateTimeFormat("en-GB", {

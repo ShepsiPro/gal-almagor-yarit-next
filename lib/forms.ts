@@ -7,8 +7,9 @@
 //
 // To add a form, append a FormDef to FORMS — no other file needs to change.
 
-import { isoToDisplay } from "./dates";
-import { WA_HREF } from "./site";
+import { completedYears, isoToDisplay } from "./dates";
+import { MORTGAGE_AGE_LIMITS, MORTGAGE_FIELDS, MORTGAGE_FORM_SLUG, SEX_OPTIONS, SMOKING_OPTIONS } from "./mortgage-quote";
+import { SITE, WA_HREF } from "./site";
 
 export type FieldType =
   | "text"
@@ -74,6 +75,10 @@ export type FormField = {
   /** number: bounds, validated on both sides. */
   min?: number;
   max?: number;
+  /** date: no later than today (an ID's issue date). Validated on both sides. */
+  pastOnly?: boolean;
+  /** date of birth: the age it gives today, in completed years, must fall in this range. Validated on both sides. */
+  ageBetween?: readonly [number, number];
   /** statement: the text to render. `label`, when set, is shown above it as the block's heading. */
   body?: string;
   /** statement: bullet points under the text, a checklist the customer reads. */
@@ -131,6 +136,13 @@ export type FormDef = {
   /** The multi-form case this form is a stage of (see CASES). */
   caseKey?: string;
   caseRole?: CaseRole;
+  /**
+   * Sending the form prices it, and the customer sees the price when it is
+   * done: "mortgage-life" compares Migdal, Menora and Harel (lib/mortgage-quote.ts).
+   * The server works it out from the answers it just checked; the lead, the
+   * email and the back-office carry the same numbers.
+   */
+  quote?: "mortgage-life";
 };
 
 /**
@@ -1284,6 +1296,116 @@ export const FORMS: readonly FormDef[] = [
       },
     ],
   },
+
+  // ── ביטוח חיים למשכנתא: the request and its price check in one form ───────
+  //
+  // The Yarit business owner's form (2026-11-05). Sending it prices the cover
+  // at Migdal, Menora and Harel from the customer's own answers, and the
+  // thank-you screen shows the cheapest (`quote`, lib/mortgage-quote.ts). The fields
+  // the price reads are named in MORTGAGE_FIELDS so the two cannot drift apart.
+
+  {
+    slug: MORTGAGE_FORM_SLUG,
+    eyebrow: "ביטוח חיים למשכנתא",
+    title: "פנייה לקבלת הצעת מחיר לביטוח חיים למשכנתא",
+    intro:
+      "נא למלא את הפרטים לצורך בדיקת עלות משוערת. בסיום נציג לכם את המחיר הנמוך מבין חברות הביטוח שבדקנו עבורכם, ונחזור אליכם להמשך. התשובות נשמרות בדפדפן, כך שאפשר לעצור ולחזור.",
+    submitLabel: "בדיקת עלות הביטוח",
+    successTitle: "הפרטים התקבלו",
+    successBody:
+      "נציג הסוכנות יחזור אליכם כדי להשלים את ההצעה: בדיקת הביטוחים הקיימים בהר הביטוח, הצהרת בריאות ואישור חברת הביטוח. אם משהו דחוף, אפשר להתקשר אלינו ישירות.",
+    quote: "mortgage-life",
+    sections: [
+      {
+        title: "פרטים אישיים של המבוטח",
+        fields: [
+          { name: "full_name", label: "שם מלא", type: "text", required: true, half: true, identity: "name", prefillable: true },
+          { name: "id_number", label: "מספר תעודת זהות", type: "id", required: true, half: true },
+          {
+            name: MORTGAGE_FIELDS.birthDate,
+            label: "תאריך לידה",
+            type: "date",
+            required: true,
+            half: true,
+            ageBetween: MORTGAGE_AGE_LIMITS,
+          },
+          { name: "phone", label: "מספר טלפון נייד", type: "tel", required: true, placeholder: "050-0000000", half: true, prefillable: true },
+          { name: MORTGAGE_FIELDS.sex, label: "מגדר", type: "radio", required: true, options: [SEX_OPTIONS.male, SEX_OPTIONS.female] },
+          { name: "occupation", label: "מקצוע / עיסוק", type: "text", required: true, half: true },
+          { name: "email", label: "דוא״ל", type: "email", placeholder: "you@example.com", half: true, prefillable: true },
+          { name: "marital_status", label: "מצב משפחתי", type: "radio", required: true, options: ["נשוי/אה", "רווק/ה", "גרוש/ה", "אלמן/ה"] },
+          { name: "children", label: "מספר ילדים", type: "number", required: true, min: 0, max: 30, placeholder: "0", half: true },
+        ],
+      },
+      {
+        title: "מצב עישון",
+        fields: [
+          {
+            name: MORTGAGE_FIELDS.smoking,
+            label: "מצב עישון",
+            type: "radio",
+            required: true,
+            options: [SMOKING_OPTIONS.smoker, SMOKING_OPTIONS.nonSmoker],
+          },
+        ],
+      },
+      {
+        title: 'פרטים והרשאה לבדיקת "הר הביטוח"',
+        fields: [
+          { name: "id_issue_date", label: "תאריך הנפקת תעודת הזהות", type: "date", required: true, half: true, pastOnly: true },
+          {
+            name: "har_statement",
+            label: "",
+            type: "statement",
+            body: `אני מאשר/ת ל${SITE.legalName} לפעול בשמי לצורך קבלת מידע על מוצרי הביטוח שלי באמצעות אתר "הר הביטוח", בכפוף לדין ולתנאי השירות, לצורך בדיקת ביטוחים קיימים והכנת הצעה לביטוח חיים למשכנתא. ההרשאה מוגבלת למטרה זו ותוקפה עד 5 ימי עבודה ממועד מתן ההסכמה. אין בהסכמה זו הרשאה לרכישת ביטוח או לביטול פוליסה קיימת.\n\nהגישה בפועל להר הביטוח תתבצע רק לפי מנגנון ההזדהות וההרשאה התקף והמורשה.`,
+          },
+          { name: "har_consent", label: "אני מאשר/ת את ההרשאה המתוארת לעיל.", type: "consent", required: true },
+        ],
+      },
+      {
+        title: "פרטי המשכנתא",
+        fields: [
+          {
+            name: MORTGAGE_FIELDS.balance,
+            label: "יתרת משכנתא נוכחית משוערת (₪)",
+            type: "number",
+            required: true,
+            // A balance under 10,000 is almost always one typed in thousands ("850" for 850,000).
+            min: 10_000,
+            max: 20_000_000,
+            placeholder: "לדוגמה: 850000",
+            half: true,
+            help: "אפשר לציין יתרה משוערת. העלות הסופית עשויה להשתנות בהתאם לנתוני ההלוואה, תקופת הביטוח ודרישות חברת הביטוח.",
+          },
+        ],
+      },
+      {
+        title: "הבהרות ואישור המבוטח",
+        fields: [
+          {
+            name: "underwriting_note",
+            label: "הערה ראשונה",
+            type: "statement",
+            tone: "warning",
+            body: "כל הצעה לביטוח חיים למשכנתא כפופה לחיתום רפואי, להצהרת בריאות ולדרישות חברת הביטוח.",
+          },
+          {
+            name: "approval_note",
+            label: "הערה שנייה",
+            type: "statement",
+            tone: "warning",
+            body: "כל הצעה כפופה לאישור מפורש של חברת הביטוח. עד להשלמת החיתום הרפואי וקבלת אישור חברת הביטוח לתחילת הביטוח, אין כיסוי ביטוחי מכוח פנייה זו או מתוצאת בדיקת המחיר.",
+          },
+          {
+            name: "confirm",
+            label: "קראתי והבנתי את ההבהרות ואני מאשר/ת שהפרטים שמסרתי נכונים למיטב ידיעתי.",
+            type: "consent",
+            required: true,
+          },
+        ],
+      },
+    ],
+  },
 ] as const;
 
 export const FORM_SLUGS = FORMS.map((f) => f.slug);
@@ -1425,6 +1547,23 @@ export function answersForReading(form: FormDef, answers: Record<string, string>
     if (f.type === "date" && out[f.name]) out[f.name] = isoToDisplay(out[f.name]);
   }
   return out;
+}
+
+/**
+ * What is wrong with a real calendar date under its field's own rules
+ * (`pastOnly`, `ageBetween`), or null. The browser and the API both ask, each
+ * with today's date in Israel, so they refuse the same dates.
+ */
+export function dateRuleProblem(field: Pick<FormField, "pastOnly" | "ageBetween">, iso: string, todayIso: string): string | null {
+  if (field.pastOnly && iso > todayIso) return "התאריך מאוחר מהיום. נא לבדוק אותו.";
+  if (field.ageBetween) {
+    const [min, max] = field.ageBetween;
+    if (iso > todayIso) return "תאריך הלידה מאוחר מהיום. נא לבדוק אותו.";
+    const age = completedYears(iso, todayIso);
+    if (age < min) return `הפנייה מיועדת לבני ${min} ומעלה. נא לבדוק את תאריך הלידה.`;
+    if (age > max) return "נא לבדוק את תאריך הלידה.";
+  }
+  return null;
 }
 
 /** Options that may not be selected alongside `option` in the same group. */

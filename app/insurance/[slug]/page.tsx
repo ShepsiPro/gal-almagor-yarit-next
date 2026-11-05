@@ -116,6 +116,11 @@ export default async function InsurancePage({ params }: PageProps) {
                       </ul>
                     </>
                   )}
+                  {s.action && (
+                    <Link href={s.action.href} className="map-btn map-btn--primary info-section__action">
+                      {s.action.label}
+                    </Link>
+                  )}
                 </div>
               </article>
             ))}

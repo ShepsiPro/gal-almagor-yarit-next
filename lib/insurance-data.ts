@@ -1,8 +1,12 @@
+import { MORTGAGE_FORM_SLUG } from "./mortgage-quote";
+
 export type InsuranceSection = {
   title: string;
   body?: string;
   bullets?: string[];
   bulletsTitle?: string;
+  /** A button under the section, to the form or calculator that acts on it. */
+  action?: { label: string; href: string };
 };
 
 export type InsuranceContent = {
@@ -14,6 +18,9 @@ export type InsuranceContent = {
   sections: InsuranceSection[];
   relatedTo: string[];
 };
+
+// The mortgage life insurance form, which prices the cover at two companies as it is sent.
+const MORTGAGE_ACTION = { label: "לבדיקת עלות ביטוח חיים למשכנתא", href: `/forms/${MORTGAGE_FORM_SLUG}` };
 
 export const INSURANCE_CONTENT: Record<string, InsuranceContent> = {
   car: {
@@ -90,6 +97,7 @@ export const INSURANCE_CONTENT: Record<string, InsuranceContent> = {
       {
         title: "ביטוח משכנתא",
         body: "ביטוח משכנתא כולל שני כיסויים עיקריים: ביטוח חיים, שמגן על המשפחה וכיסה את יתרת ההלוואה במקרה מוות, וביטוח מבנה הדירה לטובת הבנק. הבנק דורש את הביטוח הזה כתנאי להלוואה — אבל לא חייבים לרכוש אותו דרכו, ובמרבית המקרים נוכל להציע לכם פוליסה זולה ומותאמת יותר.",
+        action: MORTGAGE_ACTION,
       },
     ],
     relatedTo: ["life", "business"],
@@ -150,6 +158,7 @@ export const INSURANCE_CONTENT: Record<string, InsuranceContent> = {
           "הגעת המבוטח לגיל הקבוע בפוליסה (בדרך כלל גיל פרישה)",
           "נכות ופגיעה ביכולת המבוטח לפרנס את עצמו ואת משפחתו",
         ],
+        action: MORTGAGE_ACTION,
       },
       {
         title: "ביטוח בריאות",
