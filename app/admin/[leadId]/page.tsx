@@ -6,6 +6,7 @@ import AnsweredForm from "@/components/AnsweredForm";
 import CasePanel from "@/components/CasePanel";
 import FilePeople from "@/components/FilePeople";
 import InviteResend from "@/components/InviteResend";
+import MortgageQuotePanel from "@/components/MortgageQuotePanel";
 import MslahtkSyncNotice from "@/components/MslahtkSyncNotice";
 import StatusChip from "@/components/StatusChip";
 import { CONTACT_FIELDS, CONTACT_FORM_SLUG } from "@/lib/contact-form";
@@ -188,6 +189,9 @@ export default async function SubmissionDetail({ params }: { params: Promise<{ l
       {!sub.parentId && sub.mslahtkError && <MslahtkSyncNotice submissionId={sub.id} error={sub.mslahtkError} retry={retryMslahtk} />}
 
       {file && <CasePanel file={file} />}
+
+      {/* The price the customer saw when they sent it (Migdal, Menora and Harel side by side). */}
+      {form?.quote && !sub.awaitingCustomer && <MortgageQuotePanel answers={fields} />}
 
       {/* A form the agency sent that is not part of a case: nothing to show until the customer fills it. */}
       {!file && sub.awaitingCustomer && (

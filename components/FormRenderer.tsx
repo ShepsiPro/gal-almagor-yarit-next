@@ -8,13 +8,16 @@ import {
   MAX_TOTAL_BYTES,
   allFields,
   conflictingOptions,
+  dateRuleProblem,
   formatBytes,
   isFieldVisible,
   isValidIsraeliId,
   type FormDef,
   type FormField,
 } from "@/lib/forms";
-import { isValidIsoDate } from "@/lib/dates";
+import { isValidIsoDate, israelDayIso } from "@/lib/dates";
+import type { MortgageQuote } from "@/lib/mortgage-quote";
+import MortgageQuoteResult from "./MortgageQuoteResult";
 import { SITE, TEL_HREF, WA_HREF } from "@/lib/site";
 import DateField from "./DateField";
 import SignaturePad from "./SignaturePad";
@@ -104,6 +107,8 @@ export default function FormRenderer({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<Status>("idle");
   const [serverError, setServerError] = useState<string | null>(null);
+  // The price a pricing form (`form.quote`) comes back with: the server's own numbers, shown on the done screen.
+  const [quote, setQuote] = useState<MortgageQuote | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Restore the draft after mount (never during render — sessionStorage is not
@@ -200,7 +205,10 @@ export default function FormRenderer({
         continue;
       }
       if (!value) continue;
-      if (f.type === "date" && !isValidIsoDate(value)) next[f.name] = "תאריך לא תקין. יש להזין יום/חודש/שנה, למשל 30/09/2026";
+      if (f.type === "date") {
+        const problem = isValidIsoDate(value) ? dateRuleProblem(f, value, israelDayIso()) : "תאריך לא תקין. יש להזין יום/חודש/שנה, למשל 30/09/2026";
+        if (problem) next[f.name] = problem;
+      }
       if (f.type === "id" && !isValidIsraeliId(value)) next[f.name] = "מספר תעודת זהות אינו תקין";
       if (f.type === "email" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value))
         next[f.name] = "כתובת דוא״ל אינה תקינה";
@@ -260,12 +268,13 @@ export default function FormRenderer({
     setStatus("sending");
     try {
       const res = await fetch(action ?? `/api/forms/${form.slug}`, { method: "POST", body });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; quote?: MortgageQuote };
       if (!res.ok || !json.ok) {
         setServerError(json.error ?? "השליחה נכשלה. נסו שוב.");
         setStatus("idle");
         return;
       }
+      if (form.quote && json.quote) setQuote(json.quote);
       try {
         sessionStorage.removeItem(draftKey(draftId));
       } catch {
@@ -281,27 +290,30 @@ export default function FormRenderer({
 
   if (status === "done") {
     return (
-      <div className="fform__done" role="status">
-        <div className="fform__done-mark" aria-hidden="true">✓</div>
-        <h2 className="fform__done-title">{form.successTitle}</h2>
-        <p className="fform__done-body">{form.successBody}</p>
-        <div className="fform__done-actions">
-          {doneHref ? (
-            <a className="map-btn map-btn--primary" href={doneHref}>
-              {doneLabel ?? "המשך"}
-            </a>
-          ) : (
-            <>
-              <a className="map-btn map-btn--primary" href={TEL_HREF} dir="ltr">
-                {SITE.phoneDisplay}
+      <>
+        {quote && <MortgageQuoteResult quote={quote} />}
+        <div className="fform__done" role="status">
+          <div className="fform__done-mark" aria-hidden="true">✓</div>
+          <h2 className="fform__done-title">{form.successTitle}</h2>
+          <p className="fform__done-body">{form.successBody}</p>
+          <div className="fform__done-actions">
+            {doneHref ? (
+              <a className="map-btn map-btn--primary" href={doneHref}>
+                {doneLabel ?? "המשך"}
               </a>
-              <a className="map-btn" href={WA_HREF} target="_blank" rel="noopener noreferrer">
-                ווטסאפ
-              </a>
-            </>
-          )}
+            ) : (
+              <>
+                <a className="map-btn map-btn--primary" href={TEL_HREF} dir="ltr">
+                  {SITE.phoneDisplay}
+                </a>
+                <a className="map-btn" href={WA_HREF} target="_blank" rel="noopener noreferrer">
+                  ווטסאפ
+                </a>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 

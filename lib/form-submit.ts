@@ -22,7 +22,7 @@ import { NextResponse } from "next/server";
 import type { Submission } from "@prisma/client";
 import type { AdminIdentity } from "./admin-auth";
 import { completeInvite, fillLeadFromRow, loadInvite, senderOf } from "./case-invite";
-import { dmyHm, isValidIsoDate } from "./dates";
+import { dmyHm, isValidIsoDate, israelDayIso } from "./dates";
 import { db } from "./db";
 import {
   ACCEPTED_MIME,
@@ -33,6 +33,7 @@ import {
   allFields,
   answersForReading,
   conflictingOptions,
+  dateRuleProblem,
   displayAnswer,
   formAudience,
   formatBytes,
@@ -54,6 +55,7 @@ import {
 } from "./home-case";
 import { computeHomeQuote, decodeSnapshot, roundShekel } from "./home-quote";
 import { renderEmail, sendMail, type MailAttachment, type Row } from "./mailer";
+import { computeMortgageQuote, quoteAnswerFields, quoteEmailRows, quoteInputFromAnswers, type MortgageQuote } from "./mortgage-quote";
 import { dashboardLeadUrl, setLeadStage, submitLead, updateLead } from "./mslahtk";
 import { verifyPrefillToken } from "./prefill";
 import { accessTo, addShares, alertFile, claimIfUnclaimed, filePeople, notYoursMessage, viewerOf } from "./staff";
@@ -241,6 +243,10 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
     if (field.type === "date" && !isValidIsoDate(value)) {
       return bad(`התאריך בשדה "${field.label}" אינו תקין. יש להזין יום/חודש/שנה, למשל 30/09/2026`);
     }
+    if (field.type === "date") {
+      const problem = dateRuleProblem(field, value, israelDayIso());
+      if (problem) return bad(`${field.label}: ${problem}`);
+    }
     if (field.type === "email" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
       return bad(`כתובת הדוא״ל בשדה "${field.label}" אינה תקינה`);
     }
@@ -268,6 +274,20 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
     if (field.identity === "name" && !customerName) customerName = value;
     answers[field.name] = value;
     rows.push({ label: field.label, value: displayAnswer(field, value) });
+  }
+
+  // ── The price check a pricing form asks for ───────────────────────────────
+  // Worked out here from the answers just checked, never taken from the
+  // browser, so the customer's screen, the email, the lead and the back-office
+  // all hold the same numbers. The email leads with it.
+  let quote: MortgageQuote | null = null;
+  if (form.quote === "mortgage-life") {
+    const input = quoteInputFromAnswers(answers);
+    if (input) {
+      quote = computeMortgageQuote(input);
+      Object.assign(answers, quoteAnswerFields(quote));
+      rows.unshift(...quoteEmailRows(quote));
+    }
   }
 
   const submitted = dmyHm(new Date());
@@ -605,5 +625,5 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
     return bad("השמירה נכשלה. נסו שוב.", 502);
   }
 
-  return NextResponse.json({ ok: true, id: submission?.id ?? null, caseId: parent?.id ?? null });
+  return NextResponse.json({ ok: true, id: submission?.id ?? null, caseId: parent?.id ?? null, ...(quote ? { quote } : {}) });
 }
