@@ -2725,23 +2725,8 @@ input.fform__file-input {
   border-radius: 8px;
   padding: 20px 24px;
 }
-.mq__company { font-size: 20px; font-weight: 700; }
 .mq__price { font-size: 40px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
 .mq__price small { font-size: 15px; font-weight: 400; opacity: 0.8; margin-inline-start: 6px; }
-.mq__others { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.mq__others li {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 12px 24px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  font-size: 16px;
-  color: var(--ink);
-}
-.mq__saving { margin: 12px 0 0; font-size: 14px; font-weight: 700; color: #067647; }
-.mq__na { color: var(--muted); font-size: 14px; }
 .mq__lead { margin: 0; font-size: 16px; line-height: 1.7; color: var(--ink); }
 .mq__facts { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 14px; color: var(--ink); }
 .mq__note { margin: 8px 0 0; font-size: 12.5px; line-height: 1.65; color: var(--muted); }
@@ -2750,7 +2735,6 @@ input.fform__file-input {
   .mq { padding: 22px 18px; }
   .mq__best { padding: 18px; }
   .mq__price { font-size: 34px; }
-  .mq__others li { padding: 12px 16px; }
   .mq + .fform__done { padding: 36px 22px; }
 }
 

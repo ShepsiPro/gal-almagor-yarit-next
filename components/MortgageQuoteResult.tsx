@@ -1,41 +1,24 @@
-import { bestQuote, otherQuotes, personLabel, shekels, wholeShekels, type MortgageQuote } from "@/lib/mortgage-quote";
+import { personLabel, shekels, wholeShekels, type CustomerQuote } from "@/lib/mortgage-quote";
 
 /**
- * What the customer sees once the mortgage form is sent: the cheapest company
- * with its first monthly premium, the others under it, and what the number
- * rests on. The numbers are the server's, the same ones the agency gets on the
- * lead.
+ * What the customer sees once the mortgage form is sent: the lowest first
+ * monthly premium and what it rests on. The price only: no company is named
+ * and the others are not listed (owner, 2026-11-05); the agency sees them on
+ * the lead. The number is the server's, the same one the agency gets.
  */
-export default function MortgageQuoteResult({ quote }: { quote: MortgageQuote }) {
-  const best = bestQuote(quote);
-  const others = otherQuotes(quote);
-  const tiedWith = quote.tie ? others[0] : null;
+export default function MortgageQuoteResult({ quote }: { quote: CustomerQuote }) {
   return (
     <section className="mq" aria-label="תוצאת בדיקת העלות">
       <span className="mq__eyebrow">בדיקת עלות ביטוח חיים למשכנתא</span>
-      {best && best.monthly !== null ? (
+      {quote.monthly !== null ? (
         <>
           <h2 className="mq__title">המחיר הנמוך מבין חברות הביטוח שבדקנו</h2>
           <div className="mq__best">
-            <span className="mq__company">{best.name}</span>
             <span className="mq__price">
-              {shekels(best.monthly)}
+              {shekels(quote.monthly)}
               <small> לחודש</small>
             </span>
           </div>
-          <ul className="mq__others">
-            {others.map((o) => (
-              <li key={o.company}>
-                <span>{o.name}</span>
-                <span className={o.monthly === null ? "mq__na" : undefined}>{o.monthly !== null ? `${shekels(o.monthly)} לחודש` : o.unavailable}</span>
-              </li>
-            ))}
-          </ul>
-          {tiedWith ? (
-            <p className="mq__saving">אותו מחיר גם ב{tiedWith.name}</p>
-          ) : quote.saving ? (
-            <p className="mq__saving">חיסכון של {shekels(quote.saving)} בחודש לעומת ההצעה הבאה</p>
-          ) : null}
         </>
       ) : (
         <>

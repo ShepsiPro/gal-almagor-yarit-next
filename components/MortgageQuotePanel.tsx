@@ -2,9 +2,10 @@ import { isoToDisplay } from "@/lib/dates";
 import { personLabel, quoteFromAnswers, rateLine, shekels, wholeShekels } from "@/lib/mortgage-quote";
 
 /**
- * The price check a mortgage request was sent with, as the customer saw it on
- * the day: every company, the rate each was read at, and the cheapest. Stored,
- * not re-priced, so a later birthday or a new card does not change it.
+ * The price check a mortgage request was sent with, as it was on the day: every
+ * company, the rate each was read at, and the cheapest. The customer saw only
+ * the lowest price, with no company named. Stored, not re-priced, so a later
+ * birthday or a new card does not change it.
  */
 export default function MortgageQuotePanel({ answers }: { answers: Record<string, string> }) {
   const quote = quoteFromAnswers(answers);

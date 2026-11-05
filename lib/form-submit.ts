@@ -55,7 +55,7 @@ import {
 } from "./home-case";
 import { computeHomeQuote, decodeSnapshot, roundShekel } from "./home-quote";
 import { renderEmail, sendMail, type MailAttachment, type Row } from "./mailer";
-import { computeMortgageQuote, quoteAnswerFields, quoteEmailRows, quoteInputFromAnswers, type MortgageQuote } from "./mortgage-quote";
+import { computeMortgageQuote, customerQuote, quoteAnswerFields, quoteEmailRows, quoteInputFromAnswers, type MortgageQuote } from "./mortgage-quote";
 import { dashboardLeadUrl, setLeadStage, submitLead, updateLead } from "./mslahtk";
 import { verifyPrefillToken } from "./prefill";
 import { accessTo, addShares, alertFile, claimIfUnclaimed, filePeople, notYoursMessage, viewerOf } from "./staff";
@@ -279,7 +279,8 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
   // ── The price check a pricing form asks for ───────────────────────────────
   // Worked out here from the answers just checked, never taken from the
   // browser, so the customer's screen, the email, the lead and the back-office
-  // all hold the same numbers. The email leads with it.
+  // all hold the same numbers. The email leads with it. The customer is sent
+  // the lowest price only (customerQuote), never which company gives it.
   let quote: MortgageQuote | null = null;
   if (form.quote === "mortgage-life") {
     const input = quoteInputFromAnswers(answers);
@@ -625,5 +626,5 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
     return bad("השמירה נכשלה. נסו שוב.", 502);
   }
 
-  return NextResponse.json({ ok: true, id: submission?.id ?? null, caseId: parent?.id ?? null, ...(quote ? { quote } : {}) });
+  return NextResponse.json({ ok: true, id: submission?.id ?? null, caseId: parent?.id ?? null, ...(quote ? { price: customerQuote(quote) } : {}) });
 }

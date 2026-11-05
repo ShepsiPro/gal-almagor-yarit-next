@@ -549,11 +549,25 @@ export function bestQuote(q: MortgageQuote): CompanyQuote | null {
   return q.quotes.find((c) => c.company === q.best) ?? null;
 }
 
-/** Every other company, cheapest first, then those not priced. */
-export function otherQuotes(q: MortgageQuote): CompanyQuote[] {
-  return q.quotes
-    .filter((c) => c.company !== q.best)
-    .sort((a, b) => (a.monthly ?? Infinity) - (b.monthly ?? Infinity));
+/**
+ * What the customer's browser is sent and shown: the lowest first-month premium
+ * and what it rests on, with no company named (owner, 2026-11-05: the customer
+ * sees the price only). The companies, their prices and their rates stay with
+ * the agency: the email, the lead and the back-office.
+ */
+export type CustomerQuote = Pick<MortgageQuote, "insuranceAge" | "sex" | "smoker" | "sumInsured"> & {
+  /** The lowest first-month premium in ₪; null when no card priced it. */
+  monthly: number | null;
+};
+
+export function customerQuote(q: MortgageQuote): CustomerQuote {
+  return {
+    monthly: bestQuote(q)?.monthly ?? null,
+    insuranceAge: q.insuranceAge,
+    sex: q.sex,
+    smoker: q.smoker,
+    sumInsured: q.sumInsured,
+  };
 }
 
 /** "גבר · לא מעשן", "אישה · מעשנת" */
