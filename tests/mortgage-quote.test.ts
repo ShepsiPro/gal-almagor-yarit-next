@@ -13,6 +13,7 @@ import path from "node:path";
 import { completedYears } from "../lib/dates";
 import { dateRuleProblem, getForm, allFields, publicForms, opensFromLinkOnly } from "../lib/forms";
 import {
+  COMPANIES,
   HAREL_MAGEN_1,
   MENORA_RISK_1_ABOVE_HALF_MILLION,
   MENORA_RISK_1_UP_TO_HALF_MILLION,
@@ -22,6 +23,7 @@ import {
   SEX_OPTIONS,
   SMOKING_OPTIONS,
   computeMortgageQuote,
+  customerQuote,
   insuranceAge,
   monthlyPremium,
   quoteAnswerFields,
@@ -210,6 +212,19 @@ test("what a submission stores reads back as it was, with plain keys for the Msl
   assert.equal(rows[0].value, "מגדל ביטוח, 51.00 ₪ לחודש");
   assert.ok(rows.some((r) => r.value.includes("7.73 ₪ לחודש לכל 100,000 ₪")), "the email shows the rate each price came from");
   assert.ok(rows.some((r) => r.value.includes("0.95 ₪ לשנה לכל 1,000 ₪")), "in that card's own unit");
+});
+
+test("the customer is sent the lowest price only, with no company named", () => {
+  const q = computeMortgageQuote({ birthDate: "1990-03-15", sex: "male", smoker: false, balance: 850_000 }, "2026-11-05");
+  const shown = customerQuote(q);
+  assert.deepEqual(shown, { monthly: 51, insuranceAge: 37, sex: "male", smoker: false, sumInsured: 850_000 });
+  const sent = JSON.stringify(shown);
+  for (const c of COMPANIES) {
+    assert.ok(!sent.includes(c.key) && !sent.includes(c.name) && !sent.includes(c.plan), `nothing of ${c.key} reaches the browser`);
+  }
+  assert.ok(!sent.includes("65.71") && !sent.includes("67.29"), "nor the other prices");
+  const none = customerQuote(computeMortgageQuote({ birthDate: "1940-01-01", sex: "male", smoker: false, balance: 300_000 }, "2026-11-05"));
+  assert.equal(none.monthly, null, "past every card: no price, so the card says the agency will check");
 });
 
 test("the form: public, priced, and wired to the fields the price reads", () => {

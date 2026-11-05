@@ -16,7 +16,7 @@ import {
   type FormField,
 } from "@/lib/forms";
 import { isValidIsoDate, israelDayIso } from "@/lib/dates";
-import type { MortgageQuote } from "@/lib/mortgage-quote";
+import type { CustomerQuote } from "@/lib/mortgage-quote";
 import MortgageQuoteResult from "./MortgageQuoteResult";
 import { SITE, TEL_HREF, WA_HREF } from "@/lib/site";
 import DateField from "./DateField";
@@ -107,8 +107,8 @@ export default function FormRenderer({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<Status>("idle");
   const [serverError, setServerError] = useState<string | null>(null);
-  // The price a pricing form (`form.quote`) comes back with: the server's own numbers, shown on the done screen.
-  const [quote, setQuote] = useState<MortgageQuote | null>(null);
+  // The price a pricing form (`form.quote`) comes back with: the server's lowest price, no company named, shown on the done screen.
+  const [quote, setQuote] = useState<CustomerQuote | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Restore the draft after mount (never during render — sessionStorage is not
@@ -268,13 +268,13 @@ export default function FormRenderer({
     setStatus("sending");
     try {
       const res = await fetch(action ?? `/api/forms/${form.slug}`, { method: "POST", body });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; quote?: MortgageQuote };
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; price?: CustomerQuote };
       if (!res.ok || !json.ok) {
         setServerError(json.error ?? "השליחה נכשלה. נסו שוב.");
         setStatus("idle");
         return;
       }
-      if (form.quote && json.quote) setQuote(json.quote);
+      if (form.quote && json.price) setQuote(json.price);
       try {
         sessionStorage.removeItem(draftKey(draftId));
       } catch {
