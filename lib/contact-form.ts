@@ -10,3 +10,16 @@ export const CONTACT_FIELDS: readonly { key: string; label: string; required?: b
   { key: "topic", label: "תחום הביטוח" },
   { key: "message", label: "הודעה" },
 ];
+
+// The areas the topic list offers. Each /insurance/* page preselects its own
+// `topic` (lib/insurance-data.ts), so every page's topic must be one of these.
+export const CONTACT_TOPICS: readonly string[] = [
+  "ביטוח רכב",
+  "ביטוח דירה",
+  "ביטוח עסקים",
+  "ביטוחי חיים ובריאות",
+  "ביטוח משכנתאות",
+  "תכנון פרישה",
+  "פיננסים",
+  "תיק ביטוח כולל",
+];

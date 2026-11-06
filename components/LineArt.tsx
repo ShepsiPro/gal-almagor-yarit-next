@@ -1,9 +1,9 @@
-// Fine-line drawings of the six insurance lines, and the "coverage roof": the
+// Fine-line drawings of the seven insurance lines, and the "coverage roof": the
 // roof of the agency's shield, drawn as three engraved lines over a sky wash,
 // that settles over whatever is being insured. 320 x 200, ground at y = 172.
 // Pure SVG, no state, safe in server and client components alike.
 
-export type LineKind = "car" | "home" | "business" | "life" | "retirement" | "finance";
+export type LineKind = "car" | "home" | "business" | "life" | "mortgage" | "retirement" | "finance";
 
 const ground = <path className="art__ground" d="M18 172H302" />;
 
@@ -84,6 +84,25 @@ const DRAWINGS: Record<LineKind, JSX.Element> = {
       <path className="art__ink" d="M146 172v-26c0-9 6-15 14-15s14 6 14 15v26" />
       <path className="art__thin" d="M138 146h8M174 146h8" />
       <path className="art__gold" d="M160 66c-3-5-11-4-11 2 0 5 7 9 11 13 4-4 11-8 11-13 0-6-8-7-11-2z" />
+    </>
+  ),
+  mortgage: (
+    <>
+      {ground}
+      <path className="art__ink" d="M104 172v-62M192 172v-62" />
+      <path className="art__ink" d="M90 120l58-48 58 48" />
+      <path className="art__gold" d="M148 98c-2.6-4.4-9.6-3.5-9.6 1.8 0 4.4 6.1 7.9 9.6 11.4 3.5-3.5 9.6-7 9.6-11.4 0-5.3-7-6.2-9.6-1.8z" />
+      <rect className="art__ink" x="136" y="132" width="24" height="40" rx="1" />
+      <circle className="art__dot" cx="154" cy="153" r="1.8" />
+      <rect className="art__thin" x="112" y="132" width="16" height="16" />
+      <path className="art__thin" d="M120 132v16M112 140h16" />
+      <rect className="art__thin" x="168" y="132" width="16" height="16" />
+      <path className="art__thin" d="M176 132v16M168 140h16" />
+      <g transform="translate(238 104) rotate(-28)">
+        <circle className="art__ink" r="13" />
+        <circle className="art__thin" r="4.5" />
+        <path className="art__ink" d="M0 13V66M0 50h10M0 58h7M0 66h10" />
+      </g>
     </>
   ),
   retirement: (

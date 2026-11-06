@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { CONTACT_TOPICS } from "@/lib/contact-form";
 
 const PHONE_DISPLAY = "053-337-7779";
 const PHONE_E164 = "+972533377779";
@@ -28,16 +29,6 @@ const CONTACT_ROWS: { label: string; value: string; href?: string; ltr?: boolean
   { label: "דוא״ל", value: EMAIL, href: `mailto:${EMAIL}`, ltr: true },
   { label: "כתובת", value: ADDRESS, href: MAPS_VIEW },
   { label: "שעות", value: "ב׳–ה׳ 09:00–16:00 · ו׳ 09:00–13:00" },
-];
-
-const TOPICS = [
-  "ביטוח רכב",
-  "ביטוח דירה",
-  "ביטוח עסקים",
-  "ביטוחי חיים ובריאות",
-  "תכנון פרישה",
-  "פיננסים",
-  "תיק ביטוח כולל",
 ];
 
 export default function Contact({ defaultTopic = "" }: { defaultTopic?: string } = {}) {
@@ -131,7 +122,7 @@ export default function Contact({ defaultTopic = "" }: { defaultTopic?: string }
             <label htmlFor="cf-topic">תחום הביטוח</label>
             <select key={defaultTopic} id="cf-topic" name="topic" defaultValue={defaultTopic}>
               <option value="" disabled>בחרו תחום…</option>
-              {TOPICS.map((t) => <option key={t}>{t}</option>)}
+              {CONTACT_TOPICS.map((t) => <option key={t}>{t}</option>)}
             </select>
           </div>
           <div className="field">
