@@ -41,6 +41,7 @@ import {
   isFieldVisible,
   isValidIsraeliId,
   linkTokenRequired,
+  sniffFileKind,
   type FormField,
 } from "./forms";
 import {
@@ -170,7 +171,11 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
       const files = data
         .getAll(field.name)
         .filter((v): v is File => v instanceof File && v.size > 0);
-      if (!files.length) continue;
+      if (!files.length) {
+        // The form asks first; this holds for a request posted around it, too.
+        if (field.required) return bad(`יש לצרף: ${field.label}`);
+        continue;
+      }
       if (files.length > MAX_FILES_PER_FIELD) {
         return bad(`ניתן לצרף עד ${MAX_FILES_PER_FIELD} קבצים בשדה "${field.label}"`);
       }
@@ -186,6 +191,10 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
           return bad(`סך הקבצים חורג מ־${formatBytes(MAX_TOTAL_BYTES)}`);
         }
         const content = Buffer.from(await file.arrayBuffer());
+        // Not only named an image or a PDF: really one. A renamed, empty or broken file is refused.
+        if (!sniffFileKind(content)) {
+          return bad(`הקובץ "${file.name}" אינו תמונה או PDF תקינים. צלמו או צרפו אותו שוב.`);
+        }
         const filename = labelledName(field, file, i, files.length);
         attachments.push({ filename, content, contentType: file.type });
         incoming.push({ fieldName: field.name, filename, contentType: file.type, content });

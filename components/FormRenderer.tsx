@@ -12,6 +12,7 @@ import {
   formatBytes,
   isFieldVisible,
   isValidIsraeliId,
+  sniffFileKind,
   type FormDef,
   type FormField,
 } from "@/lib/forms";
@@ -180,14 +181,27 @@ export default function FormRenderer({
   async function addFiles(field: FormField, picked: FileList | null) {
     if (!picked?.length) return;
     setStatus("processing");
-    const incoming = await Promise.all(Array.from(picked).map(compressImage));
+    // Checked the moment it is picked, by its first bytes (the server checks again): an image or a PDF, or it is not kept.
+    const checked = await Promise.all(
+      Array.from(picked).map(async (file) => ({ file, ok: Boolean(sniffFileKind(new Uint8Array(await file.slice(0, 1024).arrayBuffer()))) })),
+    );
+    const refused = checked.filter((c) => !c.ok).map((c) => `"${c.file.name}"`);
+    const incoming = await Promise.all(checked.filter((c) => c.ok).map((c) => compressImage(c.file)));
     setStatus("idle");
-    setFiles((prev) => {
-      const existing = prev[field.name] ?? [];
-      const merged = field.multiple ? [...existing, ...incoming] : incoming.slice(0, 1);
-      return { ...prev, [field.name]: merged.slice(0, MAX_FILES_PER_FIELD) };
-    });
-    setErrors((e) => (e[field.name] ? { ...e, [field.name]: "" } : e));
+    if (incoming.length) {
+      setFiles((prev) => {
+        const existing = prev[field.name] ?? [];
+        const merged = field.multiple ? [...existing, ...incoming] : incoming.slice(0, 1);
+        return { ...prev, [field.name]: merged.slice(0, MAX_FILES_PER_FIELD) };
+      });
+    }
+    setErrors((e) =>
+      refused.length
+        ? { ...e, [field.name]: `${refused.join(", ")}: הקובץ אינו תמונה או PDF תקינים. צלמו או צרפו אותו שוב.` }
+        : e[field.name]
+          ? { ...e, [field.name]: "" }
+          : e,
+    );
   }
 
   function removeFile(name: string, index: number) {
@@ -577,7 +591,13 @@ function Field({
       <div className={`${cell}${field.half ? "" : " fform__cell--full"}`} data-field={field.name}>
         <label htmlFor={id}>
           {field.label}
-          {!field.required && <span className="fform__optional">אופציונלי</span>}
+          {field.required ? (
+            <span className="fform__req" aria-hidden="true">
+              *
+            </span>
+          ) : (
+            <span className="fform__optional">אופציונלי</span>
+          )}
         </label>
         <label className="fform__drop" htmlFor={id}>
           <span className="fform__drop-icon" aria-hidden="true">＋</span>

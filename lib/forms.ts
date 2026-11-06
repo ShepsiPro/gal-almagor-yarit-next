@@ -552,12 +552,13 @@ export const FORMS: readonly FormDef[] = [
         ],
       },
       {
-        title: "צירוף מסמכים (לא חובה)",
+        // Both are required (owner, 2026-11-06), here and on the server, and each file is checked to really be an image or a PDF.
+        title: "צירוף מסמכים",
         description:
-          "ניתן לצרף רישיון רכב מעודכן וצילום תעודת זהות של בעל הרכב. הצירוף אינו חובה לשליחת הטופס. בנייד אפשר לצלם את המסמך ישירות דרך המצלמה — התמונות מוקטנות אוטומטית לפני השליחה.",
+          "יש לצרף רישיון רכב מעודכן וצילום תעודת זהות של בעל הרכב, בתמונה ברורה או כקובץ PDF. בנייד אפשר לצלם את המסמך ישירות במצלמה, והתמונות מוקטנות אוטומטית לפני השליחה.",
         fields: [
-          { name: "doc_vehicle_license", label: "רישיון רכב מעודכן", type: "file", multiple: true },
-          { name: "doc_owner_id", label: "צילום תעודת זהות של בעל הרכב", type: "file", multiple: true },
+          { name: "doc_vehicle_license", label: "רישיון רכב מעודכן", type: "file", multiple: true, required: true },
+          { name: "doc_owner_id", label: "צילום תעודת זהות של בעל הרכב", type: "file", multiple: true, required: true },
         ],
       },
       {
@@ -1647,6 +1648,29 @@ export const ACCEPTED_MIME = [
 
 /** `accept` attribute for file inputs — HEIC comes off iPhones by default. */
 export const ACCEPT_ATTR = ".jpg,.jpeg,.png,.webp,.heic,.heif,.pdf,image/*,application/pdf";
+
+/** The brands an iPhone or Android HEIC/HEIF photo opens with. */
+const HEIF_BRANDS = ["heic", "heix", "hevc", "hevx", "heim", "heis", "hevm", "hevs", "mif1", "msf1"];
+
+/**
+ * What a file really is, read from its first bytes rather than from the name or
+ * the type the browser declared, which anyone can set: "image" for JPEG, PNG,
+ * WEBP and HEIC/HEIF, "pdf" for a PDF, and null for anything else (a renamed
+ * document, an empty or broken upload). The server refuses a null.
+ */
+export function sniffFileKind(bytes: Uint8Array): "image" | "pdf" | null {
+  const at = (i: number, ...want: number[]) => want.every((b, k) => bytes[i + k] === b);
+  const ascii = (i: number, s: string) => at(i, ...Array.from(s, (c) => c.charCodeAt(0)));
+  if (at(0, 0xff, 0xd8, 0xff)) return "image"; // JPEG
+  if (at(0, 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return "image"; // PNG
+  if (ascii(0, "RIFF") && ascii(8, "WEBP")) return "image";
+  // HEIC / HEIF: an ISO box that opens with "ftyp" and an image brand (a video opens with "ftyp" too).
+  if (ascii(4, "ftyp") && HEIF_BRANDS.some((brand) => ascii(8, brand))) return "image";
+  // A PDF's header may sit anywhere in its first kilobyte.
+  const head = Array.from(bytes.subarray(0, 1024), (b) => String.fromCharCode(b)).join("");
+  if (head.includes("%PDF-")) return "pdf";
+  return null;
+}
 
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
