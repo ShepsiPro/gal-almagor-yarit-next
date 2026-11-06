@@ -40,7 +40,7 @@ import {
   getForm,
   isFieldVisible,
   isValidIsraeliId,
-  opensFromLinkOnly,
+  linkTokenRequired,
   type FormField,
 } from "./forms";
 import {
@@ -151,7 +151,8 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
   // anyone can POST here directly.
   const sent = verifyPrefillToken(data.get("_prefill") as string | null);
   const tokenOk = Boolean(sent && sent.slug === slug);
-  if (opensFromLinkOnly(form) && !tokenOk) {
+  // A signed-in agent filling it in the office needs no link (linkTokenRequired).
+  if (linkTokenRequired(form, isAgency) && !tokenOk) {
     return bad("הקישור לטופס אינו תקין או שפג תוקפו. בקשו מהסוכנות קישור חדש.", 403);
   }
   let resentFromRef: string | undefined;
@@ -293,6 +294,10 @@ export async function handleFormSubmission(req: Request, slug: string, opts: Sub
 
   const submitted = dmyHm(new Date());
   rows.push({ label: "התקבל בתאריך", value: submitted });
+  // A customer's form an agent filled in the office, the customer beside them: the office email says who.
+  if (isAgency && formAudience(form) === "customer") {
+    rows.push({ label: "מולא במשרד", value: `על ידי ${opts.agency?.email || "צוות הסוכנות"}, יחד עם הלקוח` });
+  }
 
   // ── The case this belongs to ──────────────────────────────────────────────
   // An offer names its request in the body (it was posted from that request's

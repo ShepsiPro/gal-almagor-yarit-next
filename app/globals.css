@@ -2076,34 +2076,6 @@ input.fform__file-input {
 .fform__done-body { margin: 14px auto 0; max-width: 440px; font-size: 16px; line-height: 1.7; color: var(--muted); }
 .fform__done-actions { margin-top: 28px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 
-/* Internal link builder — /forms */
-.flinks { margin-top: 36px; }
-.flinks__prefill {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 28px;
-}
-.flinks__list { list-style: none; margin: 20px 0 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
-.flinks__item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  flex-wrap: wrap;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 24px 28px;
-}
-.flinks__title { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; margin-top: 6px; }
-.flinks__url { display: block; margin-top: 6px; font-size: 12px; color: var(--muted); }
-.flinks__actions { display: flex; gap: 10px; flex-wrap: wrap; }
-.flinks__actions .map-btn { cursor: pointer; font-family: inherit; }
-
 @media (max-width: 768px) {
   .fpage { padding: 36px 20px 72px; }
   .fform__section { padding: 24px 20px; }
@@ -2111,10 +2083,6 @@ input.fform__file-input {
   .fform__cell--half { grid-column: 1 / -1; }
   .fform__section-head { gap: 12px; }
   .fform__done { padding: 44px 22px; }
-  .flinks__prefill { grid-template-columns: 1fr; padding: 22px 20px; }
-  .flinks__item { padding: 20px; }
-  .flinks__actions { width: 100%; }
-  .flinks__actions .map-btn { flex: 1; justify-content: center; }
   /* iOS zooms the page when a focused input is under 16px */
   .fform input, .fform select, .fform textarea { font-size: 16px; }
 }
@@ -2597,9 +2565,6 @@ input.fform__file-input {
 .adm__empty { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 40px 20px; color: #98a2b3; }
 .adm__empty-title { margin: 4px 0 0; font-size: 16px; font-weight: 700; color: #344054; }
 .adm__empty .adm__btn { margin-top: 10px; }
-.adm__send { padding: 18px 16px; }
-.adm__send .flinks { margin-top: 0; }
-@media (min-width: 900px) { .adm__send { padding: 24px 28px; } }
 
 /* ── Whose files: sections, owner lines, the people panel (lib/staff.ts) ────── */
 .adm__views { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
@@ -2659,21 +2624,8 @@ input.fform__file-input {
 .fform__date-btn:hover, .fform__date-btn:focus-visible { color: var(--accent); background: var(--surface); }
 .fform__cell--locked .fform__date-text { cursor: not-allowed; }
 
-/* ── Sending a form to the customer (components/SendControls.tsx, FormLinks) ── */
+/* ── Sending a form to the customer (components/SendControls.tsx) ── */
 .adm__status--stage-invited { background: #fef6e7; color: #93370d; }
-.flinks__prefill { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.flinks__channels { grid-column: 1 / -1; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
-.flinks__channels-label { font-size: 12px; font-weight: 700; color: var(--ink); letter-spacing: 0.06em; }
-.flinks__channels-note { font-size: 13px; color: var(--muted); }
-/* What the agency fills in before it sends (FormField.agencyFills): a full row between the form's name and its buttons. */
-.flinks__fills { flex-basis: 100%; order: 2; display: grid; gap: 12px; padding: 14px 16px 16px; border: 1px dashed var(--line-strong); border-radius: 8px; background: var(--surface); }
-.flinks__fills-title { font-size: 13px; font-weight: 700; color: var(--ink); }
-.flinks__fills-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-.flinks__fills-note { margin: 0; font-size: 13px; color: var(--muted); }
-.flinks__item--fills .flinks__actions { order: 3; }
-.flinks__item--fills .flinks__result { order: 4; }
-@media (max-width: 768px) { .flinks__fills-grid { grid-template-columns: 1fr; } }
-.flinks__result { flex-basis: 100%; display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
 .sendch { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
 .sendch__opt { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #344054; cursor: pointer; }
 .sendch__opt.is-off { color: #98a2b3; cursor: not-allowed; }
@@ -2690,19 +2642,8 @@ input.fform__file-input {
 .sendrep__what { flex: 1 1 200px; min-width: 0; }
 .sendrep__link { display: grid; gap: 6px; justify-items: start; }
 .sendrep__link .adm__linkout { margin: 0; }
-@media (max-width: 768px) {
-  .flinks__prefill { grid-template-columns: 1fr; }
-}
 .map-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .map-btn.is-disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
-.flinks__notice {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-  margin-top: 28px; padding: 16px 20px; border: 1px solid var(--line); border-right: 4px solid var(--accent);
-  border-radius: 8px; background: #fff; font-size: 14px; line-height: 1.7;
-}
-.flinks__notice p { margin: 0; flex: 1 1 320px; }
-.flinks__notice + .flinks { margin-top: 16px; }
-
 /* The price a mortgage request comes back with (components/MortgageQuoteResult.tsx) */
 .mq {
   margin-top: 36px;
@@ -2756,3 +2697,108 @@ input.fform__file-input {
 
 /* A section's own button on an insurance page (InsuranceSection.action) */
 .info-section__action { margin-top: 18px; }
+
+/* ── The forms hub (components/FormLinks.tsx): the customer once, then every calculator and form ── */
+.hub { display: grid; gap: 26px; }
+.hub__client { background: #fff; border: 1px solid #e4e7ec; border-radius: 12px; padding: 18px 20px 20px; }
+.hub__client-head { display: flex; align-items: center; gap: 8px; color: #304054; }
+.hub__h { margin: 0; font-size: 16px; font-weight: 700; color: #101828; }
+.hub__sub { margin: 4px 0 14px; font-size: 13.5px; line-height: 1.55; color: #667085; }
+.hub__fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.hub__group { display: grid; gap: 12px; }
+.hub__group-h { display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 2px solid #e4e7ec; color: #101828; }
+.hub__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.hub__card {
+  display: flex; flex-direction: column; justify-content: space-between; gap: 18px; min-width: 0;
+  background: #fff; border: 1px solid #e4e7ec; border-radius: 12px; padding: 18px 20px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+.hub__eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--gold-ink); }
+.hub__title { margin: 4px 0 0; font-size: 17px; font-weight: 700; line-height: 1.4; color: #101828; }
+.hub__hint { margin: 6px 0 0; font-size: 13px; line-height: 1.55; color: #667085; }
+.hub__actions { display: flex; gap: 8px; }
+.hub__btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; padding: 0 16px;
+  border-radius: 10px; border: 1px solid #d0d5dd; background: #fff; color: #344054;
+  font: inherit; font-size: 15px; font-weight: 700; text-decoration: none; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.hub__btn:hover { background: #f9fafb; border-color: #98a2b3; color: #101828; opacity: 1; }
+.hub__btn--fill { flex: 1 1 0; background: #304054; border-color: #304054; color: #fff; }
+.hub__btn--fill:hover { background: #1d2939; border-color: #1d2939; color: #fff; }
+.hub__btn--send { flex: 1 1 0; }
+.hub__btn--look { flex: none; width: 46px; padding: 0; color: #667085; }
+.hub__caseonly { margin: 0; font-size: 13px; line-height: 1.6; color: #667085; }
+@media (max-width: 900px) { .hub__list { grid-template-columns: 1fr; } }
+@media (max-width: 640px) {
+  .hub__fields { grid-template-columns: 1fr; }
+  .hub__client, .hub__card { padding: 16px; }
+  .hub__fields input { font-size: 16px; }
+  /* Three buttons share a phone's row: tighter, and each label on one line. */
+  .hub__actions { gap: 6px; }
+  .hub__btn { gap: 6px; padding: 0 10px; font-size: 14px; white-space: nowrap; }
+  .hub__btn--look { padding: 0; }
+}
+
+/* ── Sending from the hub: the pop-up (components/SendDialog.tsx). A sheet from the bottom on a phone. ── */
+.sdlg {
+  padding: 0; border: 0; border-radius: 16px; width: min(560px, calc(100vw - 32px)); max-width: none;
+  max-height: calc(100dvh - 48px); overflow: auto; background: #fff; color: #101828;
+  box-shadow: 0 24px 48px -12px rgba(16, 24, 40, 0.3);
+}
+.sdlg::backdrop { background: rgba(16, 24, 40, 0.5); }
+.sdlg__box { display: grid; gap: 16px; padding: 20px 22px 22px; }
+/* One column that may shrink: the customer's long link (no spaces) must not widen the pop-up past its box. */
+.sdlg__box, .sdlg__actions, .sdlg__done, .sdlg__finish, .sdlg__link { grid-template-columns: minmax(0, 1fr); }
+.sdlg__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.sdlg__eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--gold-ink); }
+.sdlg__title { margin: 2px 0 0; font-size: 19px; font-weight: 700; line-height: 1.35; }
+.sdlg__x {
+  flex: none; display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 10px;
+  background: #f2f4f7; color: #344054; cursor: pointer;
+}
+.sdlg__x:hover { background: #e4e7ec; }
+.sdlg__fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sdlg__fields .field:first-child { grid-column: 1 / -1; }
+.sdlg__fills { display: grid; gap: 10px; margin: 0; padding: 12px 14px 14px; border: 1px dashed #d0d5dd; border-radius: 10px; }
+.sdlg__fills legend { padding: 0 6px; font-size: 13px; font-weight: 700; color: #344054; }
+.sdlg__fills-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.sdlg__actions { display: grid; gap: 10px; }
+.sdlg__go {
+  display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; padding: 0 18px;
+  border-radius: 12px; border: 1px solid #d0d5dd; background: #fff; color: #101828;
+  font: inherit; font-size: 16px; font-weight: 700; text-decoration: none; cursor: pointer;
+}
+.sdlg__go:hover { background: #f9fafb; color: #101828; opacity: 1; }
+.sdlg__go:disabled { opacity: 0.45; cursor: not-allowed; }
+/* WhatsApp's green, dark enough for white text. */
+.sdlg__go--wa { background: #117a43; border-color: #117a43; color: #fff; }
+.sdlg__go--wa:hover { background: #0d6236; border-color: #0d6236; color: #fff; }
+.sdlg__note { margin: 0; font-size: 13px; line-height: 1.55; color: #667085; }
+.sdlg__done { display: grid; gap: 12px; font-size: 14.5px; line-height: 1.55; }
+.sdlg__ok { display: flex; align-items: center; gap: 8px; margin: 0; font-weight: 700; color: #067647; }
+.sdlg__warn { margin: 0; color: #b54708; }
+.sdlg__line { margin: 0; color: #344054; }
+.sdlg__finish { display: grid; gap: 6px; }
+.sdlg__link { display: grid; gap: 6px; padding-top: 12px; border-top: 1px solid #eaecf0; }
+.sdlg__link-label { font-size: 12.5px; font-weight: 700; color: #667085; }
+.sdlg__link-row { display: flex; align-items: center; gap: 8px; }
+.sdlg__link-row code {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 10px; border-radius: 8px; background: #f2f4f7; font-size: 12.5px;
+}
+.sdlg__link-row .map-btn { flex: none; cursor: pointer; font-family: inherit; }
+.sdlg__foot { display: flex; gap: 10px; flex-wrap: wrap; }
+.sdlg__foot .map-btn { cursor: pointer; font-family: inherit; }
+@media (max-width: 640px) {
+  .sdlg { width: 100vw; max-height: 92dvh; margin: auto 0 0; border-radius: 18px 18px 0 0; }
+  .sdlg__box { padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); }
+  .sdlg__fields, .sdlg__fills-grid { grid-template-columns: 1fr; }
+  .sdlg input, .sdlg select { font-size: 16px; }
+}
+
+/* ── Filling in the office (app/admin/fill): a customer's form or the calculator, the customer present ── */
+.adm__eyebrow { display: block; margin-bottom: 2px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--gold-ink); }
+.adm__fill, .adm__calc { padding: 20px 22px 24px; }
+.adm__fill .fform { margin-top: 0; }
+@media (max-width: 640px) { .adm__fill, .adm__calc { padding: 14px 12px 18px; } }

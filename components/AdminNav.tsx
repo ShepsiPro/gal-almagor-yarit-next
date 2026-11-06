@@ -13,10 +13,11 @@ import AdminIcon from "@/components/AdminIcon";
  */
 export default function AdminNav({ mslahtkUrl, who }: { mslahtkUrl: string; who: string }) {
   const path = usePathname() || "/admin";
-  const onSend = path.startsWith("/admin/send");
+  // The forms hub and the office pages it opens (a form or the calculator filled with the customer present).
+  const onForms = path.startsWith("/admin/send") || path.startsWith("/admin/fill");
   const tabs = [
-    { href: "/admin", label: "פניות", icon: "inbox" as const, active: !onSend },
-    { href: "/admin/send", label: "שליחת טופס ללקוח", icon: "send" as const, active: onSend },
+    { href: "/admin", label: "פניות", icon: "inbox" as const, active: !onForms },
+    { href: "/admin/send", label: "טפסים ומחשבונים", icon: "file" as const, active: onForms },
   ];
 
   return (

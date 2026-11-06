@@ -1441,6 +1441,21 @@ export function publicForms(): FormDef[] {
   return FORMS.filter((f) => formAudience(f) === "customer" && !f.requiresToken);
 }
 
+/**
+ * Whether a submission of this form must carry the link the agency sent. The
+ * link proves a customer came through the agency; a signed-in agent filling
+ * the form in the office with the customer beside them needs no such proof
+ * (owner, 2026-11-06: fill it in place instead of sending a link).
+ */
+export function linkTokenRequired(form: FormDef, byAgency: boolean): boolean {
+  return opensFromLinkOnly(form) && !byAgency;
+}
+
+/** Forms the agency can fill in the office for a customer who is present: the same ones it can send. */
+export function officeFillable(form: FormDef): boolean {
+  return publicForms().some((f) => f.slug === form.slug);
+}
+
 /** Every field of a form, flattened — used by both the renderer and the API. */
 export function allFields(form: FormDef): FormField[] {
   return form.sections.flatMap((s) => [...s.fields]);
