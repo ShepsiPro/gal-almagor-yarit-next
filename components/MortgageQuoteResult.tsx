@@ -1,10 +1,12 @@
+import { isoToDisplay } from "@/lib/dates";
 import { personLabel, shekels, wholeShekels, type CustomerQuote } from "@/lib/mortgage-quote";
 
 /**
- * What the customer sees once the mortgage form is sent: the lowest first
- * monthly premium and what it rests on. The price only: no company is named
- * and the others are not listed (owner, 2026-11-05); the agency sees them on
- * the lead. The number is the server's, the same one the agency gets.
+ * What the customer sees once the mortgage form is sent: the lowest monthly
+ * premium of the first year, after the insurer's current discount, and what it
+ * rests on. The price only: no company is named and the others are not listed
+ * (owner, 2026-11-05); the agency sees them, and the discount used, on the lead.
+ * The number is the server's, the same one the agency gets.
  */
 export default function MortgageQuoteResult({ quote }: { quote: CustomerQuote }) {
   return (
@@ -33,7 +35,16 @@ export default function MortgageQuoteResult({ quote }: { quote: CustomerQuote })
         סכום ביטוח {wholeShekels(quote.sumInsured)} (יתרת המשכנתא) · גיל ביטוחי {quote.insuranceAge} · {personLabel(quote)}
       </p>
       <p className="mq__note">
-        הערכה ראשונית לחודש הראשון, לפי תעריפי הבסיס של חברות הביטוח. הפרמיה משתנה עם השנים לפי הגיל ויתרת ההלוואה.
+        {quote.discountUntil ? (
+          <>
+            הערכה ראשונית לתשלום החודשי בשנה הראשונה, כולל הנחה למצטרפים חדשים שבתוקף עד {isoToDisplay(quote.discountUntil)}.
+            ההנחה קטנה בשנים הבאות, והפרמיה משתנה עם השנים לפי הגיל ויתרת ההלוואה.
+          </>
+        ) : (
+          <>
+            הערכה ראשונית לחודש הראשון, לפי תעריפי הבסיס של חברות הביטוח. הפרמיה משתנה עם השנים לפי הגיל ויתרת ההלוואה.
+          </>
+        )}{" "}
         המחיר הסופי כפוף לחיתום רפואי, להצהרת בריאות ולאישור חברת הביטוח, ועד לאישור זה אין כיסוי ביטוחי.
       </p>
     </section>

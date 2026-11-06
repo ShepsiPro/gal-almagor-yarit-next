@@ -2748,6 +2748,10 @@ input.fform__file-input {
 .adm__quote.is-best { border-color: #a6f4c5; background: #f6fef9; }
 .adm__quote-name { font-weight: 700; color: #101828; font-size: 14px; }
 .adm__quote-meta { color: #667085; font-size: 12.5px; line-height: 1.5; }
+/* The discount a company's price rests on: its headline, then the row to mark on the proposal. */
+.adm__quote-discount { display: flex; flex-direction: column; gap: 3px; margin-top: 2px; padding-top: 6px; border-top: 1px dashed #e4e7ec; }
+.adm__quote-badge { align-self: flex-start; padding: 2px 8px; border-radius: 999px; background: #ecfdf3; color: #067647; font-size: 12px; font-weight: 700; }
+.adm__quote-years span span { white-space: nowrap; }
 @media (max-width: 900px) { .adm__quotes { grid-template-columns: 1fr; } }
 
 /* A section's own button on an insurance page (InsuranceSection.action) */
