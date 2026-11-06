@@ -107,6 +107,10 @@ export default async function AdminHome({
             {page.total === 1 ? "פנייה אחת" : `${page.total} פניות`}. {SECTION_NOTE[section]}
           </p>
         </div>
+        <Link className="adm__btn adm__btn--primary adm__btn--icon" href="/admin/send">
+          <AdminIcon name="pencil" size={15} />
+          <span>מילוי או שליחת טופס</span>
+        </Link>
       </div>
 
       <nav className="adm__views" aria-label="הפניות של מי">

@@ -40,8 +40,25 @@ function jewelryModeOf(i: HomeQuoteInput): JewelryMode {
 /**
  * The customer-facing face of lib/home-quote.ts. Every change re-prices on the
  * spot; the "continue" button carries the whole state into the request form.
+ * In the office (`office`) an agent runs it with the customer beside them: the
+ * request form it leads to is the back-office one (`requestPath`), the
+ * customer's details typed before it ride along (`carry`), and there is no
+ * "call us" button.
  */
-export default function HomeQuoteSimulator({ initial, inviteToken }: { initial: HomeQuoteInput | null; inviteToken?: string }) {
+export default function HomeQuoteSimulator({
+  initial,
+  inviteToken,
+  requestPath = "/forms/home-request",
+  carry,
+  office = false,
+}: {
+  initial: HomeQuoteInput | null;
+  inviteToken?: string;
+  requestPath?: string;
+  /** A query string carried on to the request form as it is ("full_name=...&phone=..."). */
+  carry?: string;
+  office?: boolean;
+}) {
   const start = initial ?? DEFAULT_INPUT;
   const [inp, setInp] = useState<HomeQuoteInput>(start);
   const [kind, setKind] = useState<Kind>(() => kindOf(start));
@@ -57,8 +74,9 @@ export default function HomeQuoteSimulator({ initial, inviteToken }: { initial: 
 
   const result = useMemo(() => computeHomeQuote(inp), [inp]);
   const continueHref = useMemo(
-    () => `/forms/home-request?sim=${encodeURIComponent(encodeSnapshot(inp))}${inviteToken ? `&p=${encodeURIComponent(inviteToken)}` : ""}`,
-    [inp, inviteToken],
+    () =>
+      `${requestPath}?sim=${encodeURIComponent(encodeSnapshot(inp))}${inviteToken ? `&p=${encodeURIComponent(inviteToken)}` : ""}${carry ? `&${carry}` : ""}`,
+    [inp, inviteToken, requestPath, carry],
   );
 
   function set<K extends keyof HomeQuoteInput>(key: K, value: HomeQuoteInput[K]) {
@@ -300,11 +318,13 @@ export default function HomeQuoteSimulator({ initial, inviteToken }: { initial: 
 
         <div className="sim__cta">
           <Link className="map-btn map-btn--primary" href={continueHref}>
-            מעוניין/ת בהצעה? להמשך לבקשה
+            {office ? "להמשך לטופס הבקשה" : "מעוניין/ת בהצעה? להמשך לבקשה"}
           </Link>
-          <a className="map-btn" href={TEL_HREF} dir="ltr">
-            {SITE.phoneDisplay}
-          </a>
+          {!office && (
+            <a className="map-btn" href={TEL_HREF} dir="ltr">
+              {SITE.phoneDisplay}
+            </a>
+          )}
         </div>
 
         {!result.blocked && (

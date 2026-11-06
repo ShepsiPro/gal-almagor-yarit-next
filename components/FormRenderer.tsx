@@ -74,6 +74,10 @@ export default function FormRenderer({
   mode = "customer",
   doneHref,
   doneLabel,
+  doneTitle,
+  doneBody,
+  doneSecondary,
+  keepDraft = true,
 }: {
   form: FormDef;
   prefill?: Record<string, string>;
@@ -93,9 +97,20 @@ export default function FormRenderer({
   extra?: Record<string, string>;
   /** "agency": the back-office fills it; no mailbox note, a "back" button when done. */
   mode?: FormMode;
-  /** Where the done screen sends the person, instead of the phone buttons. */
+  /** Where the done screen sends the person, instead of the phone buttons. "{id}" becomes the saved request's id. */
   doneHref?: string;
   doneLabel?: string;
+  /** The done screen's own words, when it speaks to the agency rather than the customer. */
+  doneTitle?: string;
+  doneBody?: string;
+  /** A second way on from the done screen. */
+  doneSecondary?: { href: string; label: string };
+  /**
+   * Keep the answers in this tab across a refresh. Off where one screen serves
+   * one customer after another (the office fill), so nobody's answers ever
+   * appear on the next customer's form.
+   */
+  keepDraft?: boolean;
 }) {
   const lockedSet = useMemo(() => new Set(locked), [locked]);
   const fields = useMemo(() => allFields(form), [form]);
@@ -109,6 +124,8 @@ export default function FormRenderer({
   const [serverError, setServerError] = useState<string | null>(null);
   // The price a pricing form (`form.quote`) comes back with: the server's lowest price, no company named, shown on the done screen.
   const [quote, setQuote] = useState<CustomerQuote | null>(null);
+  // The id the server saved the request under, for a done button that opens it.
+  const [savedId, setSavedId] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Restore the draft after mount (never during render — sessionStorage is not
@@ -116,7 +133,7 @@ export default function FormRenderer({
   useEffect(() => {
     let restored: Values = {};
     try {
-      const raw = sessionStorage.getItem(draftKey(draftId));
+      const raw = keepDraft ? sessionStorage.getItem(draftKey(draftId)) : null;
       if (raw) restored = JSON.parse(raw) as Values;
     } catch {
       /* private mode / quota — fall through to the prefill only */
@@ -129,13 +146,13 @@ export default function FormRenderer({
   // Keep the draft alive across an accidental refresh. Text answers only —
   // File objects cannot be serialised, so uploads are re-picked after a reload.
   useEffect(() => {
-    if (status === "done" || !Object.keys(values).length) return;
+    if (!keepDraft || status === "done" || !Object.keys(values).length) return;
     try {
       sessionStorage.setItem(draftKey(draftId), JSON.stringify(values));
     } catch {
       /* quota exceeded — the draft is a convenience, not a requirement */
     }
-  }, [values, draftId, status]);
+  }, [values, draftId, status, keepDraft]);
 
   const totalBytes = Object.values(files)
     .flat()
@@ -268,13 +285,14 @@ export default function FormRenderer({
     setStatus("sending");
     try {
       const res = await fetch(action ?? `/api/forms/${form.slug}`, { method: "POST", body });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; price?: CustomerQuote };
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; price?: CustomerQuote; id?: string | null };
       if (!res.ok || !json.ok) {
         setServerError(json.error ?? "השליחה נכשלה. נסו שוב.");
         setStatus("idle");
         return;
       }
       if (form.quote && json.price) setQuote(json.price);
+      setSavedId(json.id ?? null);
       try {
         sessionStorage.removeItem(draftKey(draftId));
       } catch {
@@ -289,18 +307,29 @@ export default function FormRenderer({
   }
 
   if (status === "done") {
+    // "{id}" in doneHref is the request just saved; without one (nothing stored) that button has nowhere to go.
+    const nextHref = doneHref?.includes("{id}") ? (savedId ? doneHref.replace("{id}", encodeURIComponent(savedId)) : undefined) : doneHref;
     return (
       <>
         {quote && <MortgageQuoteResult quote={quote} />}
         <div className="fform__done" role="status">
           <div className="fform__done-mark" aria-hidden="true">✓</div>
-          <h2 className="fform__done-title">{form.successTitle}</h2>
-          <p className="fform__done-body">{form.successBody}</p>
+          <h2 className="fform__done-title">{doneTitle ?? form.successTitle}</h2>
+          <p className="fform__done-body">{doneBody ?? form.successBody}</p>
           <div className="fform__done-actions">
-            {doneHref ? (
-              <a className="map-btn map-btn--primary" href={doneHref}>
-                {doneLabel ?? "המשך"}
-              </a>
+            {doneHref || doneSecondary ? (
+              <>
+                {nextHref && (
+                  <a className="map-btn map-btn--primary" href={nextHref}>
+                    {doneLabel ?? "המשך"}
+                  </a>
+                )}
+                {doneSecondary && (
+                  <a className={`map-btn${nextHref ? "" : " map-btn--primary"}`} href={doneSecondary.href}>
+                    {doneSecondary.label}
+                  </a>
+                )}
+              </>
             ) : (
               <>
                 <a className="map-btn map-btn--primary" href={TEL_HREF} dir="ltr">

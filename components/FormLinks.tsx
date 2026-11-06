@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CASES, FORMS, agencyFillFields, agencyMustFill, formAudience, identityField, publicForms } from "@/lib/forms";
+import AdminIcon from "@/components/AdminIcon";
+import { CASES, FORMS, agencyMustFill, formAudience, getForm, identityField, opensFromLinkOnly, prefillableFields, publicForms, type FormDef } from "@/lib/forms";
 import type { SendOutcome } from "@/lib/send-types";
 import { SITE } from "@/lib/site";
-import { SendReport } from "./SendControls";
+import SendDialog, { type Contact, type SendItem } from "./SendDialog";
 
 /** The back-office "send" button, handed in by the page that sits under the admin session. */
 export type SendFormAction = (input: {
@@ -19,289 +20,165 @@ export type SendFormAction = (input: {
   prefill?: Record<string, string>;
 }) => Promise<SendOutcome>;
 
-/**
- * The agency's "send a form" tool: pick a form, type the customer's details,
- * send.
- *
- * In the back-office (`send` given) the customer is registered in Mslahtk the
- * moment the form is sent, and the link goes out over WhatsApp and/or email by
- * itself where the system can, or opens ready to send by hand where it cannot.
- * On the public /forms page (no `send`, no session) it stays what it always
- * was: a link builder whose name and phone only become query parameters, with
- * nothing stored and nothing registered.
- */
-export default function FormLinks({ send }: { send?: SendFormAction }) {
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [wantWhatsapp, setWantWhatsapp] = useState(true);
-  const [wantEmail, setWantEmail] = useState(true);
-  const [copied, setCopied] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [results, setResults] = useState<Record<string, SendOutcome | undefined>>({});
-  // What the agent fills in for the customer before sending (form slug, then field name).
-  const [fills, setFills] = useState<Record<string, Record<string, string>>>({});
-  const setFill = (slug: string, field: string, value: string) => setFills((f) => ({ ...f, [slug]: { ...f[slug], [field]: value } }));
+type Card = SendItem & {
+  id: string;
+  eyebrow: string;
+  /** One line under the title: what it does, or what sending it needs. */
+  hint?: string;
+  /** The office page that fills it with the customer present. */
+  fillPath: string;
+  /** The page the customer sees, for a look before sending. */
+  previewPath: string;
+};
 
+/**
+ * The back-office forms hub: every calculator and form the agency gives
+ * customers, each with two ways to use it (owner, 2026-11-06). "Fill now" opens
+ * it in the office with the customer beside the agent, no link sent; "Send to
+ * the customer" opens a pop-up that sends it over WhatsApp or email, or copies
+ * the link. The customer's details are typed once, at the top, and go with
+ * either.
+ */
+export default function FormLinks({ send }: { send: SendFormAction }) {
+  const [contact, setContact] = useState<Contact>({ name: "", phone: "", email: "" });
+  const [sending, setSending] = useState<Card | null>(null);
   // The site's own address for the first render (server and browser agree, so
   // hydration matches), then the host this page is really open on.
   const [origin, setOrigin] = useState<string>(SITE.url);
   useEffect(() => setOrigin(window.location.origin), []);
+
+  function formCard(form: FormDef): Card {
+    const linkOnly = opensFromLinkOnly(form);
+    const mustGive = agencyMustFill(form);
+    const notes = [
+      ...(form.quote ? ["בודק את המחיר בכל חברות הביטוח, כולל ההנחות הנוכחיות, והלקוח רואה רק את הנמוך"] : []),
+      ...(linkOnly ? ["נשלח ללקוח כקישור אישי בלבד"] : []),
+      ...(mustGive.length ? [`לפני שליחה מזינים: ${mustGive.map((f) => f.label).join(", ")}`] : []),
+    ];
+    return {
+      id: form.slug,
+      slug: form.slug,
+      kind: "form",
+      title: form.title,
+      eyebrow: form.eyebrow,
+      hint: notes.join(" · ") || undefined,
+      linkOnly,
+      publicUrl: `${origin}/forms/${form.slug}`,
+      fillPath: `/admin/fill/${form.slug}`,
+      previewPath: `/forms/${form.slug}`,
+    };
+  }
+
   const forms = publicForms();
+  const calculators: Card[] = [
+    ...CASES.filter((c) => c.simulatorPath).map(
+      (c): Card => ({
+        id: `sim-${c.key}`,
+        slug: c.request,
+        kind: "simulator",
+        title: c.simulatorTitle ?? "מחשבון ביטוח דירה",
+        // Its name is close to its request form's: the eyebrow says which one is the calculator.
+        eyebrow: "מחשבון",
+        hint: "הערכת מחיר מיידית לביטוח הדירה, וממנה טופס בקשה עם כל הנתונים",
+        linkOnly: false,
+        publicUrl: `${origin}${c.simulatorPath}`,
+        fillPath: `/admin/fill/calculator/${c.key}`,
+        previewPath: c.simulatorPath!,
+      }),
+    ),
+    ...forms.filter((f) => f.quote).map(formCard),
+  ];
+  const others = forms.filter((f) => !f.quote).map(formCard);
   // Forms that only exist inside a case: named here so nobody looks for them.
   const caseOnly = FORMS.filter((f) => formAudience(f) === "agency" || f.requiresToken);
 
-  const hasContact = Boolean(phone.trim() || email.trim());
-  const channels = [...(wantWhatsapp && phone.trim() ? (["whatsapp"] as const) : []), ...(wantEmail && email.trim() ? (["email"] as const) : [])];
-
-  function linkFor(slug: string) {
+  /** The office page with the customer's details already in the form, each under that form's own field name. */
+  function fillHref(card: Card) {
+    const form = getForm(card.slug);
     const q = new URLSearchParams();
-    const form = FORMS.find((f) => f.slug === slug);
-    // Each form spells its name field differently; ask it rather than guess.
-    const nameKey = form && identityField(form, "name")?.name;
-    if (nameKey && name.trim()) q.set(nameKey, name.trim());
-    if (phone.trim()) q.set("phone", phone.trim());
-    if (email.trim()) q.set("email", email.trim());
-    for (const [field, value] of Object.entries(fills[slug] ?? {})) if (value.trim()) q.set(field, value.trim());
+    if (form) {
+      const keys = new Set(prefillableFields(form));
+      const nameKey = identityField(form, "name")?.name;
+      if (nameKey && contact.name.trim()) q.set(nameKey, contact.name.trim());
+      if (keys.has("phone") && contact.phone.trim()) q.set("phone", contact.phone.trim());
+      if (keys.has("email") && contact.email.trim()) q.set("email", contact.email.trim());
+    }
     const qs = q.toString();
-    return `${origin}/forms/${slug}${qs ? `?${qs}` : ""}`;
-  }
-
-  function waHref(url: string, title: string) {
-    const digits = phone.replace(/\D/g, "");
-    // 05… → 9725…, so the chat opens on the right contact when a number is typed.
-    const intl = digits.startsWith("0") ? `972${digits.slice(1)}` : digits;
-    const text = `שלום${name.trim() ? ` ${name.trim()}` : ""}, כאן ${SITE.brand}.\nלמילוי הטופס "${title}":\n${url}`;
-    return `https://wa.me/${intl}?text=${encodeURIComponent(text)}`;
-  }
-
-  async function copy(key: string, url: string) {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(key);
-      setTimeout(() => setCopied(null), 2000);
-    } catch {
-      setCopied(null);
-    }
-  }
-
-  /** Back-office: register the customer, then send (or, with `copyOnly`, just hand back the link). */
-  async function sendItem(key: string, slug: string, kind: "form" | "simulator", copyOnly: boolean) {
-    if (!send) return;
-    setBusy(`${key}:${copyOnly ? "copy" : "send"}`);
-    try {
-      const request = send({ slug, kind, name, phone, email, channels: copyOnly ? [] : channels, prefill: fills[slug] });
-      // Safari and iOS take back the click's permission to use the clipboard
-      // once anything is awaited, so the clipboard is handed the PROMISE of the
-      // link now, not the link later. A browser that cannot do that copies after
-      // the wait, and the result below always carries its own copy button.
-      const promised =
-        copyOnly && typeof ClipboardItem !== "undefined" && navigator.clipboard?.write
-          ? navigator.clipboard
-              .write([
-                new ClipboardItem({
-                  "text/plain": request.then((o) => {
-                    if (!o.ok) throw new Error(o.error);
-                    return new Blob([o.link], { type: "text/plain" });
-                  }),
-                }),
-              ])
-              .then(
-                () => true,
-                () => false,
-              )
-          : Promise.resolve(false);
-      const out = await request;
-      setResults((r) => ({ ...r, [key]: out }));
-      // They belong to the customer just sent to: cleared, so the next customer never gets them by accident.
-      // (Sending again to the same customer keeps what the first send carried.)
-      if (out.ok) setFills((f) => ({ ...f, [slug]: {} }));
-      if (copyOnly && out.ok) {
-        if (await promised) {
-          setCopied(key);
-          setTimeout(() => setCopied(null), 2000);
-        } else {
-          await copy(key, out.link);
-        }
-      }
-    } catch (err) {
-      setResults((r) => ({ ...r, [key]: { ok: false, error: err instanceof Error ? err.message : String(err) } }));
-    } finally {
-      setBusy(null);
-    }
+    return `${card.fillPath}${qs ? `?${qs}` : ""}`;
   }
 
   // A plain function, not a component: a component defined inside a component is
-  // a new type on every keystroke, which would remount the inputs below and drop
-  // the cursor.
-  function renderItem({ id, eyebrow, title, slug, kind }: { id: string; eyebrow: string; title: string; slug: string; kind: "form" | "simulator" }) {
-    const path = kind === "simulator" ? (CASES.find((c) => c.request === slug)?.simulatorPath ?? `/forms/${slug}`) : `/forms/${slug}`;
-    const plain = kind === "simulator" ? `${origin}${path}` : linkFor(slug);
-    const result = results[id];
-    const form = kind === "form" ? FORMS.find((f) => f.slug === slug) : undefined;
-    const fillFields = form ? agencyFillFields(form) : [];
-    // What the customer must answer, the agency gives before it can send (the vehicle number of an accident notice).
-    const mustGive = form ? agencyMustFill(form) : [];
-    const missing = mustGive.filter((f) => !(fills[slug]?.[f.name] ?? "").trim());
-    const waitFor = missing.length ? `יש להזין לפני השליחה: ${missing.map((f) => f.label).join(", ")}` : undefined;
+  // a new type on every render, which would remount the cards.
+  function renderCard(card: Card) {
     return (
-      <li className={`flinks__item${fillFields.length ? " flinks__item--fills" : ""}`} key={id}>
-        <div className="flinks__meta">
-          <div className="crow__label">{eyebrow}</div>
-          <div className="flinks__title">{title}</div>
-          <code className="flinks__url" dir="ltr">
-            {path}
-          </code>
+      <li className="hub__card" key={card.id}>
+        <div className="hub__card-text">
+          <span className="hub__eyebrow">{card.eyebrow}</span>
+          <h3 className="hub__title">{card.title}</h3>
+          {card.hint && <p className="hub__hint">{card.hint}</p>}
         </div>
-
-        {fillFields.length > 0 && (
-          <div className="flinks__fills">
-            <div className="flinks__fills-title">למלא מראש בטופס של הלקוח</div>
-            <div className="flinks__fills-grid">
-              {fillFields.map((f) => {
-                const fid = `fl-${slug}-${f.name}`;
-                const value = fills[slug]?.[f.name] ?? "";
-                return (
-                  <div className="field" key={f.name}>
-                    <label htmlFor={fid}>
-                      {f.label}
-                      {f.required && <span className="fform__req" aria-hidden="true">*</span>}
-                    </label>
-                    {f.type === "select" ? (
-                      <select id={fid} value={value} onChange={(e) => setFill(slug, f.name, e.target.value)}>
-                        <option value="">לא נבחר</option>
-                        {f.options?.map((o) => (
-                          <option key={o} value={o}>
-                            {o}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input id={fid} value={value} onChange={(e) => setFill(slug, f.name, e.target.value)} dir="ltr" autoComplete="off" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <p className="flinks__fills-note">
-              {mustGive.length > 0 ? `חובה להזין לפני השליחה: ${mustGive.map((f) => f.label).join(", ")}. ` : ""}
-              {fillFields.length > mustGive.length ? "השאר לא חובה. " : ""}
-              הלקוח יראה אותם מלאים בטופס ויוכל לתקן.
-            </p>
-          </div>
-        )}
-        <div className="flinks__actions">
-          {send ? (
-            <>
-              <button
-                type="button"
-                className="map-btn map-btn--primary"
-                disabled={busy !== null || !hasContact || channels.length === 0 || missing.length > 0}
-                title={waitFor ?? (!hasContact ? "יש להזין טלפון או דוא״ל של הלקוח" : channels.length === 0 ? "יש לסמן לפחות ערוץ שליחה אחד" : undefined)}
-                onClick={() => sendItem(id, slug, kind, false)}
-              >
-                {busy === `${id}:send` ? "שולח…" : "שליחה ללקוח"}
-              </button>
-              {hasContact ? (
-                <button type="button" className="map-btn" disabled={busy !== null || missing.length > 0} title={waitFor} onClick={() => sendItem(id, slug, kind, true)}>
-                  {copied === id ? "הועתק ✓" : busy === `${id}:copy` ? "מייצר…" : "העתקת קישור אישי"}
-                </button>
-              ) : (
-                <button type="button" className="map-btn" disabled={missing.length > 0} onClick={() => copy(id, plain)} title={waitFor ?? "קישור כללי: לא נרשם במסלחתק עד שהלקוח ימלא"}>
-                  {copied === id ? "הועתק ✓" : "העתקת קישור כללי"}
-                </button>
-              )}
-            </>
-          ) : (
-            <>
-              <a
-                className={`map-btn map-btn--primary${missing.length ? " is-disabled" : ""}`}
-                href={waHref(plain, title)}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-disabled={missing.length > 0}
-                tabIndex={missing.length ? -1 : undefined}
-                title={waitFor}
-                onClick={(e) => {
-                  if (missing.length) e.preventDefault();
-                }}
-              >
-                שליחה בווטסאפ
-              </a>
-              <button type="button" className="map-btn" disabled={missing.length > 0} title={waitFor} onClick={() => copy(id, plain)}>
-                {copied === id ? "הועתק ✓" : "העתקת קישור"}
-              </button>
-            </>
-          )}
-          <a className="map-btn" href={path} target="_blank" rel="noopener noreferrer">
-            תצוגה מקדימה
+        <div className="hub__actions">
+          <Link className="hub__btn hub__btn--fill" href={fillHref(card)}>
+            <AdminIcon name="pencil" size={18} />
+            <span>מילוי עכשיו</span>
+          </Link>
+          <button type="button" className="hub__btn hub__btn--send" onClick={() => setSending(card)}>
+            <AdminIcon name="send" size={18} />
+            <span>שליחה ללקוח</span>
+          </button>
+          <a className="hub__btn hub__btn--look" href={card.previewPath} target="_blank" rel="noopener noreferrer" title="תצוגה מקדימה" aria-label={`תצוגה מקדימה: ${card.title}`}>
+            <AdminIcon name="eye" size={18} />
           </a>
         </div>
-        {result && (
-          <div className="flinks__result">
-            <SendReport result={result} btn="map-btn" />
-            {result.ok && (
-              <Link className="map-btn" href={`/admin/${result.id}`}>
-                פתיחת התיק
-              </Link>
-            )}
-          </div>
-        )}
       </li>
     );
   }
 
   return (
-    <div className="flinks">
-      <div className="flinks__prefill">
-        <div className="field">
-          <label htmlFor="fl-name">שם הלקוח{send ? "" : " (אופציונלי)"}</label>
-          <input id="fl-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="ישראל ישראלי" autoComplete="off" />
+    <div className="hub">
+      <section className="hub__client" aria-labelledby="hub-client">
+        <div className="hub__client-head">
+          <AdminIcon name="user" size={18} />
+          <h2 className="hub__h" id="hub-client">
+            פרטי הלקוח
+          </h2>
         </div>
-        <div className="field">
-          <label htmlFor="fl-phone">טלפון הלקוח{send ? "" : " (אופציונלי)"}</label>
-          <input id="fl-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="050-0000000" dir="ltr" inputMode="tel" autoComplete="off" />
-        </div>
-        <div className="field">
-          <label htmlFor="fl-email">דוא״ל הלקוח (אופציונלי)</label>
-          <input id="fl-email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" dir="ltr" inputMode="email" autoComplete="off" />
-        </div>
-        {send && (
-          <div className="flinks__channels">
-            <span className="flinks__channels-label">לשלוח דרך</span>
-            <label className={`sendch__opt${phone.trim() ? "" : " is-off"}`}>
-              <input type="checkbox" checked={wantWhatsapp && Boolean(phone.trim())} disabled={!phone.trim()} onChange={(e) => setWantWhatsapp(e.target.checked)} />
-              <span>ווטסאפ</span>
-            </label>
-            <label className={`sendch__opt${email.trim() ? "" : " is-off"}`}>
-              <input type="checkbox" checked={wantEmail && Boolean(email.trim())} disabled={!email.trim()} onChange={(e) => setWantEmail(e.target.checked)} />
-              <span>מייל</span>
-            </label>
-            <span className="flinks__channels-note">
-              {hasContact ? "הלקוח נרשם במסלחתק ברגע השליחה, עוד לפני שפתח את הטופס." : "יש להזין טלפון או דוא״ל כדי לשלוח ולרשום את הלקוח."}
-            </span>
+        <p className="hub__sub">נכנסים לטופס כשממלאים כאן, ולקישור כששולחים. אפשר גם להשאיר ריק ולמלא בתוך הטופס.</p>
+        <div className="hub__fields">
+          <div className="field">
+            <label htmlFor="fl-name">שם הלקוח</label>
+            <input id="fl-name" value={contact.name} onChange={(e) => setContact((c) => ({ ...c, name: e.target.value }))} placeholder="ישראל ישראלי" autoComplete="off" />
           </div>
-        )}
-      </div>
+          <div className="field">
+            <label htmlFor="fl-phone">טלפון</label>
+            <input id="fl-phone" value={contact.phone} onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))} placeholder="050-0000000" dir="ltr" inputMode="tel" autoComplete="off" />
+          </div>
+          <div className="field">
+            <label htmlFor="fl-email">דוא״ל (לא חובה)</label>
+            <input id="fl-email" value={contact.email} onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))} placeholder="name@example.com" dir="ltr" inputMode="email" autoComplete="off" />
+          </div>
+        </div>
+      </section>
 
-      <ul className="flinks__list">
-        {CASES.filter((c) => c.simulatorPath).map((c) => (
-          renderItem({
-            id: `sim-${c.key}`,
-            eyebrow: c.title,
-            title: c.simulatorTitle ?? "מחשבון ביטוח דירה",
-            slug: c.request,
-            kind: "simulator",
-          })
-        ))}
-        {forms.map((f) => renderItem({ id: f.slug, eyebrow: f.eyebrow, title: f.title, slug: f.slug, kind: "form" }))}
-      </ul>
+      <section className="hub__group" aria-labelledby="hub-calc">
+        <h2 className="hub__h hub__group-h" id="hub-calc">
+          <AdminIcon name="calculator" size={18} />
+          מחשבונים ובדיקות מחיר
+        </h2>
+        <ul className="hub__list">{calculators.map(renderCard)}</ul>
+      </section>
 
-      {caseOnly.length > 0 && (
-        <p className="form__note" style={{ marginTop: 18 }}>
-          נשלחים מתוך התיק בניהול, לא מכאן: {caseOnly.map((f) => `${f.eyebrow} (${f.title})`).join(" · ")}.
-        </p>
-      )}
+      <section className="hub__group" aria-labelledby="hub-forms">
+        <h2 className="hub__h hub__group-h" id="hub-forms">
+          <AdminIcon name="file" size={18} />
+          טפסים
+        </h2>
+        <ul className="hub__list">{others.map(renderCard)}</ul>
+      </section>
+
+      {caseOnly.length > 0 && <p className="hub__caseonly">נשלחים מתוך התיק בניהול, לא מכאן: {caseOnly.map((f) => `${f.eyebrow} (${f.title})`).join(" · ")}.</p>}
+
+      {sending && <SendDialog item={sending} contact={contact} onContact={setContact} send={send} onClose={() => setSending(null)} />}
     </div>
   );
 }
