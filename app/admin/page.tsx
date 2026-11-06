@@ -6,7 +6,7 @@ import AdminIcon from "@/components/AdminIcon";
 import StatusChip from "@/components/StatusChip";
 import { sweepStatuses } from "@/lib/mslahtk-sync";
 import { remindUnfilled } from "@/lib/reminders";
-import { SECTION_LABEL, colleagues, loadTeam, nameOf, ownerLine, sectionWhere, sectionsFor, viewerOf, type Section } from "@/lib/staff";
+import { SECTION_LABEL, colleagues, loadTeam, nameOf, ownerLine, sectionWhere, sectionsFor, syncLeadOwners, viewerOf, type Section } from "@/lib/staff";
 import { countSubmissions, listSubmissions } from "@/lib/submissions";
 import { requireAdmin } from "./session";
 
@@ -53,6 +53,9 @@ export default async function AdminHome({
   // Statuses are a mirror of Mslahtk's pipeline; bring them up to date on the
   // way in (throttled to once in five minutes, never blocks the list).
   await sweepStatuses().catch(() => undefined);
+  // Each file's owner goes to its Mslahtk lead as the assignee (only changes,
+  // in the background), so Mslahtk's Leads page shows each employee their own.
+  void syncLeadOwners();
   // Due "not filled yet" reminders go out too, in the background (the server's
   // own timer does this as well; this covers a server that just woke up).
   void remindUnfilled().catch(() => undefined);

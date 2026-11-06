@@ -22,7 +22,7 @@
 import type { Prisma } from "@prisma/client";
 import type { AdminIdentity } from "./admin-auth";
 import { db } from "./db";
-import { fetchTeam, mslahtkConfigured, notifyBusiness, type LeadOpResult } from "./mslahtk";
+import { fetchTeam, mslahtkConfigured, notifyBusiness, setLeadAssignee, type LeadOpResult } from "./mslahtk";
 
 // ── Who is looking ──────────────────────────────────────────────────────────
 
@@ -407,6 +407,7 @@ export async function claimIfUnclaimed(fileId: string, viewer: Viewer, team?: Te
   const res = await db.submission
     .updateMany({ where: { id: fileId, parentId: null, ...unclaimedWhere(t) }, data: { ownerId: viewer.id } })
     .catch(() => ({ count: 0 }));
+  if (res.count === 1) void pushLeadOwner(fileId);
   return res.count === 1;
 }
 
@@ -433,4 +434,114 @@ export async function joinFile(fileId: string, viewer: Viewer, ownerId: string |
       update: {},
     })
     .catch((err) => console.error("[staff] could not share the file", { fileId, error: err instanceof Error ? err.message : String(err) }));
+}
+
+// ── Whose lead it is in Mslahtk ─────────────────────────────────────────────
+//
+// Mslahtk can limit an employee to their own leads (and the unassigned ones),
+// by each lead's assignee. A file's owner here is sent there as the assignee
+// of its lead, so Mslahtk's Leads page shows each employee the files their
+// section here shows, and no colleague's. Only CHANGES are sent: a file
+// remembers which owner its lead was last brought in line with
+// (Submission.mslahtkOwnerSynced, "" for nobody), so an assignment the owner
+// of the business makes in Mslahtk stands until the file changes hands here.
+
+export type LeadOwnerChange = { leadId: string; send: false; mark: string } | { leadId: string; send: true; assignee: string | null; mark: string };
+
+/** What a file's lead needs, or null when it already has it (or there is no lead). */
+export function leadOwnerChange(row: { ownerId: string | null; mslahtkLeadId: string | null; mslahtkOwnerSynced: string | null }): LeadOwnerChange | null {
+  if (!row.mslahtkLeadId) return null;
+  const mark = row.ownerId ?? "";
+  if (row.mslahtkOwnerSynced === mark) return null;
+  // Nobody has it and it was never sent: a lead starts out unassigned, so
+  // there is nothing to tell Mslahtk (and nothing of the owner's to undo).
+  if (!mark && row.mslahtkOwnerSynced === null) return { leadId: row.mslahtkLeadId, send: false, mark };
+  return { leadId: row.mslahtkLeadId, send: true, assignee: row.ownerId, mark };
+}
+
+/** A Mslahtk from before the assignee field: ask again an hour later, not on every hand-over. */
+const ASSIGN_RETRY_UNSUPPORTED_MS = 60 * 60_000;
+let assignUnsupportedUntil = 0;
+
+/**
+ * Send a file's owner to its Mslahtk lead as the assignee, when it changed.
+ * An owner Mslahtk does not count as on the team (they left, or never had the
+ * leads area) is sent as nobody: the lead goes back with the unassigned, the
+ * same as the file here. Never throws.
+ */
+export async function pushLeadOwner(fileId: string): Promise<"sent" | "noted" | "skipped" | "failed"> {
+  if (!mslahtkConfigured() || !fileId) return "skipped";
+  try {
+    const row = await db.submission.findUnique({
+      where: { id: fileId },
+      select: { id: true, parentId: true, ownerId: true, mslahtkLeadId: true, mslahtkOwnerSynced: true },
+    });
+    if (!row || row.parentId) return "skipped";
+    const change = leadOwnerChange(row);
+    if (!change) return "skipped";
+    if (change.send) {
+      if (Date.now() < assignUnsupportedUntil) return "skipped";
+      let res = await setLeadAssignee(change.leadId, change.assignee);
+      if (!res.ok && res.code === "assignee_not_on_team" && change.assignee) res = await setLeadAssignee(change.leadId, null);
+      if (!res.ok) {
+        if (res.unsupported) {
+          assignUnsupportedUntil = Date.now() + ASSIGN_RETRY_UNSUPPORTED_MS;
+          return "skipped";
+        }
+        // A lead Mslahtk no longer has is not worth asking about again.
+        if (res.status !== 404) {
+          if (!res.skipped) console.error("[staff] could not set the lead's assignee in Mslahtk", { fileId, status: res.status, error: res.error });
+          return res.skipped ? "skipped" : "failed";
+        }
+      }
+    }
+    // Only while the file still has that owner: a hand-over in between is sent next time.
+    await db.submission.updateMany({ where: { id: row.id, ownerId: row.ownerId }, data: { mslahtkOwnerSynced: change.mark } });
+    return change.send ? "sent" : "noted";
+  } catch (err) {
+    console.error("[staff] could not set the lead's assignee in Mslahtk", { fileId, error: err instanceof Error ? err.message : String(err) });
+    return "failed";
+  }
+}
+
+const OWNER_SYNC_EVERY_MS = 5 * 60_000;
+const OWNER_SYNC_BATCH = 100;
+let ownerSyncAt = 0;
+let ownerSyncInFlight: Promise<{ sent: number; noted: number; failed: number }> | null = null;
+
+/**
+ * Bring the files' leads in line with their owners, a batch at a time: files
+ * owned before this existed, a hand-over whose call failed, a lead the sweep
+ * linked late, a file the team list gave its owner. Throttled (it runs on
+ * back-office visits), one run at a time, never throws.
+ */
+export async function syncLeadOwners(opts: { force?: boolean } = {}): Promise<{ sent: number; noted: number; failed: number }> {
+  const none = { sent: 0, noted: 0, failed: 0 };
+  if (!mslahtkConfigured()) return none;
+  const now = Date.now();
+  if (!opts.force && (now - ownerSyncAt < OWNER_SYNC_EVERY_MS || now < assignUnsupportedUntil)) return none;
+  if (ownerSyncInFlight) return ownerSyncInFlight;
+  ownerSyncAt = now;
+  ownerSyncInFlight = (async () => {
+    const out = { ...none };
+    try {
+      const rows = await db.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "Submission"
+        WHERE "parentId" IS NULL AND "mslahtkLeadId" IS NOT NULL
+          AND ("mslahtkOwnerSynced" IS NULL OR "mslahtkOwnerSynced" <> COALESCE("ownerId", ''))
+        ORDER BY "updatedAt" DESC LIMIT ${OWNER_SYNC_BATCH}`;
+      for (const r of rows) {
+        const res = await pushLeadOwner(r.id);
+        if (res === "sent") out.sent += 1;
+        else if (res === "noted") out.noted += 1;
+        else if (res === "failed") out.failed += 1;
+        if (Date.now() < assignUnsupportedUntil) break;
+      }
+    } catch (err) {
+      console.error("[staff] lead owner sync failed", { error: err instanceof Error ? err.message : String(err) });
+    } finally {
+      ownerSyncInFlight = null;
+    }
+    return out;
+  })();
+  return ownerSyncInFlight;
 }

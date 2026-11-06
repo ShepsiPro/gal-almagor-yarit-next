@@ -33,7 +33,7 @@ import { sendWhatsappText, setLeadStage, submitLead, updateLeadFields, type What
 import { phoneKey, toE164, waDigits } from "./phone";
 import { mintPrefillToken } from "./prefill";
 import { CHANNELS, type Channel, type ChannelOutcome, type Registration, type SendOutcome } from "./send-types";
-import { claimIfUnclaimed, joinFile, viewerOf } from "./staff";
+import { claimIfUnclaimed, joinFile, pushLeadOwner, viewerOf } from "./staff";
 import { answersOf, createSubmission } from "./submissions";
 
 export type Recipient = { name: string; phone: string; email: string };
@@ -222,6 +222,8 @@ async function registerLead(sub: { id: string }, form: FormDef, to: Recipient, p
   await db.submission
     .update({ where: { id: sub.id }, data: { mslahtkLeadId: lead.leadId, mslahtkStatus: "new", mslahtkError: null, mslahtkSyncedAt: new Date() } })
     .catch((err) => console.error("[invite] could not record the lead link", { id: sub.id, error: err instanceof Error ? err.message : String(err) }));
+  // The sender's file is their lead in Mslahtk too.
+  void pushLeadOwner(sub.id);
   // The agency reached out: that is what "contacted" means on the pipeline.
   const stage = await setLeadStage(lead.leadId, "contacted", "נשלח טופס ללקוח");
   if (stage.ok) {
@@ -472,6 +474,7 @@ export async function fillLeadFromRow(row: Submission, page = "/forms"): Promise
   await db.submission
     .update({ where: { id: row.id }, data: { mslahtkLeadId: lead.leadId, mslahtkStatus: "new", mslahtkError: null, mslahtkSyncedAt: new Date() } })
     .catch((err) => console.error("[invite] could not record the lead link", { id: row.id, error: err instanceof Error ? err.message : String(err) }));
+  void pushLeadOwner(row.id);
   return { ok: true, leadId: lead.leadId, recreated: true };
 }
 

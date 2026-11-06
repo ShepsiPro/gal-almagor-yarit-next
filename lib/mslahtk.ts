@@ -350,6 +350,48 @@ export async function updateLead(
   }
 }
 
+/** The outcome of setLeadAssignee; `code` is Mslahtk's own when it names one. */
+export type AssignResult =
+  | { ok: true }
+  | { ok: false; error: string; skipped?: boolean; status?: number; code?: string; unsupported?: boolean };
+
+/**
+ * PATCH .../leads/:id { assigneeUserId }: whose lead it is in Mslahtk. An
+ * employee the owner limited to their own leads there sees the leads assigned
+ * to them plus the unassigned ones, so this keeps Mslahtk's Leads page in step
+ * with the sections here. The owner or an active Mslahtk team member with the
+ * leads area (Mslahtk answers `assignee_not_on_team` for anyone else); null
+ * puts it back with the unassigned. Mslahtk sends no push for it. Needs
+ * `leads:write`. Never throws.
+ *
+ * `unsupported` is a Mslahtk from before the field: it reads the body as empty
+ * and answers "Nothing to update".
+ */
+export async function setLeadAssignee(leadId: string, assigneeUserId: string | null): Promise<AssignResult> {
+  const cfg = mslahtkConfig();
+  if (!mslahtkConfigured()) return { ok: false, error: "Mslahtk is not configured", skipped: true };
+  try {
+    const res = await fetch(`${cfg.api}/service/sites/${encodeURIComponent(cfg.projectId)}/leads/${encodeURIComponent(leadId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${cfg.serviceToken}` },
+      body: JSON.stringify({ assigneeUserId }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.ok) return { ok: true };
+    const json = (await res.json().catch(() => ({}))) as { message?: unknown; code?: unknown };
+    const error = typeof json.message === "string" ? json.message : `Mslahtk responded ${res.status}`;
+    return {
+      ok: false,
+      error,
+      status: res.status,
+      ...(typeof json.code === "string" ? { code: json.code } : {}),
+      ...(res.status === 400 && error === "Nothing to update" ? { unsupported: true } : {}),
+    };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 /** The API takes 50 keys per patch; a long form is written in batches of 40. */
 const PATCH_KEYS_PER_CALL = 40;
 
