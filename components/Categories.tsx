@@ -34,6 +34,13 @@ const CATEGORIES: { id: LineKind; sub: string; title: string; desc: string; bull
     bullets: ["ביטוח חיים", "מחלות קשות", "סיעוד", "בריאות פרטי"],
   },
   {
+    id: "mortgage",
+    sub: "חיים ומבנה",
+    title: "ביטוח משכנתאות",
+    desc: "ביטוח החיים והמבנה שהבנק דורש לכל הלוואה לדיור, בלי לקנות אותו דרך הבנק. בדיקת עלות אצל כמה חברות ביטוח וטיפול מלא מול הבנק.",
+    bullets: ["ביטוח חיים למשכנתא", "ביטוח מבנה", "בדיקת עלות מיידית", "טיפול מול הבנק"],
+  },
+  {
     id: "retirement",
     sub: "פנסיה וגמל",
     title: "תכנון פרישה",
@@ -50,7 +57,7 @@ const CATEGORIES: { id: LineKind; sub: string; title: string; desc: string; bull
 ];
 
 /**
- * "What are you insuring?" The six lines as a list; pointing at (or tabbing
+ * "What are you insuring?" The seven lines as a list; pointing at (or tabbing
  * to) one opens its sheet beside the list, with its drawing under the gold
  * coverage roof. Below 1025px there is no room for a sheet, so every line is a
  * plain row with its drawing as a thumbnail, and a tap goes to its page.
@@ -90,7 +97,7 @@ export default function Categories() {
           <div>
             <div className="eyebrow">תחומי הליווי</div>
             <h2 className="section__title" id="lines-title">
-              שישה תחומים.
+              שבעה תחומים.
               <br />
               <em>תיק ביטוח אחד שלם.</em>
             </h2>

@@ -65,6 +65,7 @@ export const FOOTER_INSURANCE = [
   { slug: "home", label: "ביטוח דירה ומשכנתא" },
   { slug: "business", label: "ביטוח עסקים" },
   { slug: "life", label: "ביטוחי חיים ובריאות" },
+  { slug: "mortgage", label: "ביטוח משכנתאות" },
   { slug: "retirement", label: "תכנון פרישה" },
   { slug: "finance", label: "פיננסים" },
 ] as const;

@@ -50,7 +50,10 @@ export default async function InsurancePage({ params }: PageProps) {
   const ctaHref = hasSimulator ? "#quote" : "#contact";
   // The home insurance page starts the customer at the calculator: a first
   // number in a minute, then the request form with the numbers carried over.
-  const calculator = getCase("home")?.simulatorPath && slug === "home" ? getCase("home")!.simulatorPath! : null;
+  // An area with a calculator of its own (the mortgage page's price check)
+  // leads with it the same way.
+  const homeCalculator = slug === "home" ? getCase("home")?.simulatorPath : undefined;
+  const calculator = homeCalculator ? { label: "לחישוב הצעה ראשונית", href: homeCalculator } : (content.calculator ?? null);
 
   return (
     <>
@@ -75,8 +78,8 @@ export default async function InsurancePage({ params }: PageProps) {
 
           <div className="info-hero__ctas">
             {calculator ? (
-              <Link href={calculator} className="btn-primary">
-                לחישוב הצעה ראשונית
+              <Link href={calculator.href} className="btn-primary">
+                {calculator.label}
               </Link>
             ) : (
               <a href={ctaHref} className="btn-primary">
@@ -137,16 +140,16 @@ export default async function InsurancePage({ params }: PageProps) {
                 והתחייבות, עם איש קשר אישי שמלווה אתכם לאורך כל הדרך.
               </p>
               {calculator ? (
-                <Link href={calculator} className="btn-primary info-aside__cta">
-                  לחישוב הצעה ראשונית
+                <Link href={calculator.href} className="btn-primary info-aside__cta">
+                  {calculator.label}
                 </Link>
               ) : (
                 <a href={ctaHref} className="btn-primary info-aside__cta">
                   קבלת הצעה
                 </a>
               )}
-              <a href="tel:074-7506000" className="info-aside__phone">
-                074-7506000
+              <a href={TEL_HREF} className="info-aside__phone" dir="ltr">
+                {SITE.phoneDisplay}
               </a>
             </div>
 

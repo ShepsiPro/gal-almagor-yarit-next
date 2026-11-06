@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "יערית מקבוצת גל אלמגור סוכנות לביטוח",
     short_name: "יערית",
     description:
-      "יערית מקבוצת גל אלמגור סוכנות לביטוח, בשלומי. ביטוחי רכב, דירה, עסקים, חיים ובריאות, פרישה ופיננסים.",
+      "יערית מקבוצת גל אלמגור סוכנות לביטוח, בשלומי. ביטוחי רכב, דירה, עסקים, חיים ובריאות, משכנתאות, פרישה ופיננסים.",
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",

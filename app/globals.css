@@ -446,8 +446,8 @@ em { font-style: normal; color: var(--accent); }
   padding-bottom: 8px;
 }
 
-/* Six lines: what are you insuring?
-   The six lines as a list and, beside it, the drawing of the one pointed at,
+/* Seven lines: what are you insuring?
+   The seven lines as a list and, beside it, the drawing of the one pointed at,
    under the gold coverage roof (the roof of the agency's shield). From 1025px
    the sheet opens on hover or focus; below that there is no room for it, so
    every line is a plain row with its drawing as a thumbnail, and a link. */

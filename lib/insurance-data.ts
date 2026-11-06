@@ -17,9 +17,11 @@ export type InsuranceContent = {
   intro: string;
   sections: InsuranceSection[];
   relatedTo: string[];
+  /** The calculator the page leads with: its top button and the side card's go there instead of to the contact form. */
+  calculator?: { label: string; href: string };
 };
 
-// The mortgage life insurance form, which prices the cover at two companies as it is sent.
+// The mortgage life insurance form, which prices the cover as it is sent. It lives on the mortgage page (owner, 2026-11-06).
 const MORTGAGE_ACTION = { label: "לבדיקת עלות ביטוח חיים למשכנתא", href: `/forms/${MORTGAGE_FORM_SLUG}` };
 
 export const INSURANCE_CONTENT: Record<string, InsuranceContent> = {
@@ -158,7 +160,6 @@ export const INSURANCE_CONTENT: Record<string, InsuranceContent> = {
           "הגעת המבוטח לגיל הקבוע בפוליסה (בדרך כלל גיל פרישה)",
           "נכות ופגיעה ביכולת המבוטח לפרנס את עצמו ואת משפחתו",
         ],
-        action: MORTGAGE_ACTION,
       },
       {
         title: "ביטוח בריאות",
@@ -180,7 +181,50 @@ export const INSURANCE_CONTENT: Record<string, InsuranceContent> = {
         body: "פוליסת ביטוח חיים נועדה לאפשר למשפחתכם לשמור על רמת החיים גם במקרה של מוות, נכות או אובדן כושר עבודה. אנחנו נתאים את הסכומים, את גיל הסיום ואת ההרחבות לפי המבנה הספציפי של המשפחה והעסק שלכם.",
       },
     ],
-    relatedTo: ["retirement", "home"],
+    relatedTo: ["mortgage", "retirement", "home"],
+  },
+
+  mortgage: {
+    slug: "mortgage",
+    eyebrow: "ביטוח משכנתאות",
+    topic: "ביטוח משכנתאות",
+    title: "ביטוח החיים והמבנה שהבנק דורש, במחיר שמתאים לכם",
+    intro:
+      "כל משכנתא מגיעה עם שני ביטוחים שהבנק דורש: ביטוח חיים ללווים וביטוח מבנה לנכס. את שניהם לא חייבים לקנות דרך הבנק. ביערית מקבוצת גל אלמגור סוכנות לביטוח, בשלומי, נבדוק עבורכם את העלות אצל כמה חברות ביטוח, נבחר יחד את הפוליסה המתאימה ונטפל מול הבנק עד שהיא מאושרת.",
+    // Shorter than the section's button, so the side card's fits on one line on a phone.
+    calculator: { label: "לבדיקת עלות ביטוח החיים", href: MORTGAGE_ACTION.href },
+    sections: [
+      {
+        title: "ביטוח חיים למשכנתא",
+        body: "ביטוח החיים מגן על המשפחה: אם חלילה אחד הלווים נפטר, חברת הביטוח משלמת לבנק את יתרת ההלוואה המבוטחת, והבית נשאר בידי המשפחה. סכום הביטוח הוא יתרת המשכנתא, והוא יורד ככל שההלוואה נפרעת.",
+        bulletsTitle: "ממה נקבע המחיר",
+        bullets: [
+          "גיל הלווים",
+          "מין ועישון",
+          "יתרת המשכנתא",
+          "מצב בריאותי, לפי הצהרת הבריאות",
+        ],
+        action: MORTGAGE_ACTION,
+      },
+      {
+        title: "ביטוח מבנה למשכנתא",
+        body: "מכסה את מבנה הדירה עצמו, הקירות, הצנרת והמערכות הקבועות, מפני אש, רעידת אדמה, נזקי מים ונזקי טבע. סכום הביטוח נקבע לפי עלות הבנייה מחדש של הדירה, ולא לפי מחיר השוק שלה. אם כבר יש לכם ביטוח דירה שכולל מבנה, אפשר בדרך כלל לשעבד אותו לטובת הבנק.",
+      },
+      {
+        title: "לא חייבים לקנות את הביטוח בבנק",
+        body: "הבנק צריך לקבל פוליסה של כל חברת ביטוח שעומדת בדרישות שלו, בתנאי שהיא משועבדת לטובתו. גם אם המשכנתא כבר רצה, אפשר לבדוק מעבר לפוליסה זולה יותר בכל שלב. אנחנו נשווה בין החברות ונטפל בכל הניירת מול הבנק.",
+      },
+      {
+        title: "איך זה עובד אצלנו",
+        bullets: [
+          "ממלאים פרטים קצרים ומקבלים מיד הערכה ראשונית לעלות ביטוח החיים",
+          "נציג הסוכנות חוזר אליכם להשלמת ההצעה",
+          "בודקים יחד את הביטוחים הקיימים וממלאים הצהרת בריאות",
+          "אחרי אישור חברת הביטוח, מעבירים את הפוליסה לבנק",
+        ],
+      },
+    ],
+    relatedTo: ["life", "home"],
   },
 
   retirement: {
