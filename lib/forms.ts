@@ -1300,9 +1300,11 @@ export const FORMS: readonly FormDef[] = [
   // ── ביטוח חיים למשכנתא: the request and its price check in one form ───────
   //
   // The Yarit business owner's form (2026-11-05). Sending it prices the cover
-  // at Migdal, Menora and Harel from the customer's own answers, and the
-  // thank-you screen shows the cheapest (`quote`, lib/mortgage-quote.ts). The fields
-  // the price reads are named in MORTGAGE_FIELDS so the two cannot drift apart.
+  // at Migdal, Menora and Harel from the customer's own answers, each after its
+  // best current discount, and the thank-you screen shows the cheapest (`quote`,
+  // lib/mortgage-quote.ts). The fields the price reads are named in
+  // MORTGAGE_FIELDS so the two cannot drift apart. The years left on the
+  // mortgage were added for the discounts that need a minimum period (2026-11-06).
 
   {
     slug: MORTGAGE_FORM_SLUG,
@@ -1376,6 +1378,17 @@ export const FORMS: readonly FormDef[] = [
             placeholder: "לדוגמה: 850000",
             half: true,
             help: "אפשר לציין יתרה משוערת. העלות הסופית עשויה להשתנות בהתאם לנתוני ההלוואה, תקופת הביטוח ודרישות חברת הביטוח.",
+          },
+          {
+            name: MORTGAGE_FIELDS.loanYears,
+            label: "כמה שנים נותרו למשכנתא",
+            type: "number",
+            required: true,
+            min: 1,
+            max: 40,
+            placeholder: "לדוגמה: 25",
+            half: true,
+            help: "אפשר לציין בערך, לפי לוח הסילוקין של הבנק. חלק מההנחות של חברות הביטוח תלויות בתקופת הביטוח.",
           },
         ],
       },

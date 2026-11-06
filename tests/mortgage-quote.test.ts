@@ -35,6 +35,10 @@ import {
 } from "../lib/mortgage-quote";
 import { SITE } from "../lib/site";
 
+// A day after every promotion in lib/mortgage-discounts.ts has ended, so the
+// pricing tests read the cards alone; the discounts have tests of their own.
+const CARD_DAY = "2027-01-05";
+
 type CardCopy = { columns: string[]; rows: Record<string, string[]> };
 const cards = JSON.parse(fs.readFileSync(path.join(process.cwd(), "tests/fixtures/mortgage-rate-cards.json"), "utf8")) as Record<string, CardCopy>;
 
@@ -100,7 +104,7 @@ test("insurance age: from six months after a birthday the next age's row is used
 });
 
 test("a man, insurance age 37, non-smoker, 850,000: Migdal is the cheapest", () => {
-  const q = computeMortgageQuote({ birthDate: "1990-03-15", sex: "male", smoker: false, balance: 850_000 }, "2026-11-05");
+  const q = computeMortgageQuote({ birthDate: "1990-03-15", sex: "male", smoker: false, balance: 850_000 }, CARD_DAY);
   assert.equal(q.age, 36);
   assert.equal(q.insuranceAge, 37);
   const [migdal, menora, harel] = q.quotes;
@@ -121,7 +125,7 @@ test("a man, insurance age 37, non-smoker, 850,000: Migdal is the cheapest", () 
 });
 
 test("a young man with 600,000: Menora's second table makes it the cheapest", () => {
-  const q = computeMortgageQuote({ birthDate: "2000-08-01", sex: "male", smoker: false, balance: 600_000 }, "2026-11-05");
+  const q = computeMortgageQuote({ birthDate: "2000-08-01", sex: "male", smoker: false, balance: 600_000 }, CARD_DAY);
   assert.equal(q.insuranceAge, 26);
   assert.deepEqual(q.quotes.map((c) => c.monthly), [36.0, 34.08, 35.5]);
   assert.equal(q.best, "menora");
@@ -129,7 +133,7 @@ test("a young man with 600,000: Menora's second table makes it the cheapest", ()
 });
 
 test("a young smoker with 500,000: Harel is the cheapest", () => {
-  const q = computeMortgageQuote({ birthDate: "2008-08-01", sex: "male", smoker: true, balance: 500_000 }, "2026-11-05");
+  const q = computeMortgageQuote({ birthDate: "2008-08-01", sex: "male", smoker: true, balance: 500_000 }, CARD_DAY);
   assert.equal(q.insuranceAge, 18);
   assert.deepEqual(q.quotes.map((c) => c.monthly), [44.15, 56.7, 42.5]);
   assert.equal(q.best, "harel");
@@ -138,7 +142,7 @@ test("a young smoker with 500,000: Harel is the cheapest", () => {
 
 test("Harel prices only from 500,000 of cover, and only to age 75", () => {
   const harelAt = (birthDate: string, balance: number) =>
-    computeMortgageQuote({ birthDate, sex: "male", smoker: false, balance }, "2026-11-05").quotes.find((c) => c.company === "harel")!;
+    computeMortgageQuote({ birthDate, sex: "male", smoker: false, balance }, CARD_DAY).quotes.find((c) => c.company === "harel")!;
   assert.equal(harelAt("2000-08-01", 499_999).monthly, null);
   assert.equal(harelAt("2000-08-01", 499_999).unavailable, "לא מחושב לסכום ביטוח מתחת ל-500,000 ₪");
   assert.equal(harelAt("2000-08-01", 500_000).monthly, 29.58);
@@ -147,7 +151,7 @@ test("Harel prices only from 500,000 of cover, and only to age 75", () => {
 });
 
 test("Menora's tier is the whole sum's: 500,000 from the first table, 500,001 all from the second", () => {
-  const at = (balance: number) => computeMortgageQuote({ birthDate: "2000-08-01", sex: "male", smoker: false, balance }, "2026-11-05").quotes[1];
+  const at = (balance: number) => computeMortgageQuote({ birthDate: "2000-08-01", sex: "male", smoker: false, balance }, CARD_DAY).quotes[1];
   assert.equal(at(500_000).rate, 5.97);
   assert.equal(at(500_000).monthly, 29.85);
   assert.equal(at(500_001).rate, 5.68);
@@ -155,7 +159,7 @@ test("Menora's tier is the whole sum's: 500,000 from the first table, 500,001 al
 });
 
 test("the same price at two companies: a tie, the first of them named, no saving", () => {
-  const q = computeMortgageQuote({ birthDate: "1996-08-01", sex: "female", smoker: true, balance: 600_000 }, "2026-11-05");
+  const q = computeMortgageQuote({ birthDate: "1996-08-01", sex: "female", smoker: true, balance: 600_000 }, CARD_DAY);
   assert.equal(q.insuranceAge, 30);
   assert.equal(q.quotes[0].monthly, 36.9);
   assert.equal(q.quotes[1].monthly, 36.9);
@@ -166,7 +170,7 @@ test("the same price at two companies: a tie, the first of them named, no saving
 });
 
 test("past Migdal's mortgage entry age (69), under Harel's 500,000: only Menora prices it", () => {
-  const q = computeMortgageQuote({ birthDate: "1956-01-01", sex: "female", smoker: false, balance: 300_000 }, "2026-11-05");
+  const q = computeMortgageQuote({ birthDate: "1956-01-01", sex: "female", smoker: false, balance: 300_000 }, CARD_DAY);
   assert.equal(q.insuranceAge, 71);
   assert.equal(q.quotes[0].monthly, null);
   assert.equal(q.quotes[0].unavailable, "לא מחושב מעל גיל 69");
@@ -178,7 +182,7 @@ test("past Migdal's mortgage entry age (69), under Harel's 500,000: only Menora 
 });
 
 test("past every card: no price, and the result says so instead of guessing", () => {
-  const q = computeMortgageQuote({ birthDate: "1940-01-01", sex: "male", smoker: false, balance: 300_000 }, "2026-11-05");
+  const q = computeMortgageQuote({ birthDate: "1940-01-01", sex: "male", smoker: false, balance: 300_000 }, CARD_DAY);
   assert.equal(q.best, null);
   assert.ok(q.quotes.every((c) => c.monthly === null && c.unavailable));
   assert.equal(quoteAnswerFields(q).quote_best, "לא חושב אוטומטית");
@@ -191,21 +195,27 @@ test("the form's answers become the input, and an incomplete set does not", () =
     [MORTGAGE_FIELDS.smoking]: SMOKING_OPTIONS.smoker,
     [MORTGAGE_FIELDS.balance]: "850000",
   };
-  assert.deepEqual(quoteInputFromAnswers(answers), { birthDate: "1990-03-15", sex: "female", smoker: true, balance: 850_000 });
+  assert.deepEqual(quoteInputFromAnswers(answers), { birthDate: "1990-03-15", sex: "female", smoker: true, balance: 850_000, loanYears: null });
+  const years = (v: string) => quoteInputFromAnswers({ ...answers, [MORTGAGE_FIELDS.loanYears]: v })!.loanYears;
+  assert.equal(years("25"), 25);
+  assert.equal(years("24.5"), 24, "whole years: 24.5 does not reach a 25-year minimum");
+  assert.equal(years("0"), null);
+  assert.equal(years("many"), null, "unreadable years leave the price, without the discounts that need them");
   assert.equal(quoteInputFromAnswers({ ...answers, [MORTGAGE_FIELDS.sex]: "" }), null);
   assert.equal(quoteInputFromAnswers({ ...answers, [MORTGAGE_FIELDS.balance]: "lots" }), null);
   assert.equal(quoteInputFromAnswers({ ...answers, [MORTGAGE_FIELDS.birthDate]: "15/03/1990" }), null);
 });
 
 test("what a submission stores reads back as it was, with plain keys for the Mslahtk card", () => {
-  const q = computeMortgageQuote({ birthDate: "1990-03-15", sex: "male", smoker: false, balance: 850_000 }, "2026-11-05");
+  const q = computeMortgageQuote({ birthDate: "1990-03-15", sex: "male", smoker: false, balance: 850_000 }, CARD_DAY);
   const stored = quoteAnswerFields(q);
   assert.deepEqual(quoteFromAnswers(stored), q);
   assert.equal(stored.quote_best, "מגדל ביטוח: 51.00 ₪ לחודש");
-  assert.equal(stored.quote_migdal, "51.00 ₪ לחודש");
-  assert.equal(stored.quote_menora, "65.71 ₪ לחודש");
-  assert.equal(stored.quote_harel, "67.29 ₪ לחודש");
+  assert.equal(stored.quote_migdal, "51.00 ₪ לחודש (ללא הנחה)");
+  assert.equal(stored.quote_menora, "65.71 ₪ לחודש (ללא הנחה)");
+  assert.equal(stored.quote_harel, "67.29 ₪ לחודש (ללא הנחה)");
   assert.equal(stored.quote_sum_insured, "850,000 ₪");
+  assert.equal(stored.quote_discount, undefined, "no promotion running: no discount line");
   assert.equal(quoteFromAnswers({}), null);
   assert.equal(quoteFromAnswers({ _quote: "not json" }), null);
   const rows = quoteEmailRows(q);
@@ -215,15 +225,15 @@ test("what a submission stores reads back as it was, with plain keys for the Msl
 });
 
 test("the customer is sent the lowest price only, with no company named", () => {
-  const q = computeMortgageQuote({ birthDate: "1990-03-15", sex: "male", smoker: false, balance: 850_000 }, "2026-11-05");
+  const q = computeMortgageQuote({ birthDate: "1990-03-15", sex: "male", smoker: false, balance: 850_000 }, CARD_DAY);
   const shown = customerQuote(q);
-  assert.deepEqual(shown, { monthly: 51, insuranceAge: 37, sex: "male", smoker: false, sumInsured: 850_000 });
+  assert.deepEqual(shown, { monthly: 51, discountUntil: null, insuranceAge: 37, sex: "male", smoker: false, sumInsured: 850_000 });
   const sent = JSON.stringify(shown);
   for (const c of COMPANIES) {
     assert.ok(!sent.includes(c.key) && !sent.includes(c.name) && !sent.includes(c.plan), `nothing of ${c.key} reaches the browser`);
   }
   assert.ok(!sent.includes("65.71") && !sent.includes("67.29"), "nor the other prices");
-  const none = customerQuote(computeMortgageQuote({ birthDate: "1940-01-01", sex: "male", smoker: false, balance: 300_000 }, "2026-11-05"));
+  const none = customerQuote(computeMortgageQuote({ birthDate: "1940-01-01", sex: "male", smoker: false, balance: 300_000 }, CARD_DAY));
   assert.equal(none.monthly, null, "past every card: no price, so the card says the agency will check");
 });
 

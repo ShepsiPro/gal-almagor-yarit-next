@@ -21,12 +21,17 @@
 // All are BASE rates, before any medical or occupational loading, which only
 // the insurer's underwriting can add.
 //
+// On top of the card, each company's current discount for a new policy, one per
+// policy, the one that gives the lowest price (lib/mortgage-discounts.ts). The
+// companies are compared on the monthly premium of the first year after it.
+//
 // A new card means new numbers here and a new run of the tests, which read every
 // cell back against a copy taken from the photos.
 //
 // Pure module: no React, no Node-only API, safe on both sides.
 
 import { completedMonths, completedYears, israelDayIso } from "./dates";
+import { appliedDiscount, bestDiscount, discountDetails, discountHeadline, discountLines, discountedMonthly, type AppliedDiscount } from "./mortgage-discounts";
 
 // ── The form this prices ────────────────────────────────────────────────────
 // The FormDef (lib/forms.ts) and the pricing share these names, so a renamed
@@ -39,6 +44,7 @@ export const MORTGAGE_FIELDS = {
   sex: "gender",
   smoking: "smoking",
   balance: "mortgage_balance",
+  loanYears: "mortgage_years_left",
 } as const;
 
 export const SEX_OPTIONS = { male: "זכר", female: "נקבה" } as const;
@@ -411,6 +417,8 @@ export type MortgageQuoteInput = {
   smoker: boolean;
   /** The mortgage balance in ₪: the sum insured. */
   balance: number;
+  /** Years left on the mortgage: how long the cover runs. Null when not asked (some discounts need a minimum). */
+  loanYears?: number | null;
 };
 
 export type CompanyQuote = {
@@ -423,8 +431,16 @@ export type CompanyQuote = {
   rate: number | null;
   /** That unit in words: "לחודש לכל 100,000 ₪", "לשנה לכל 1,000 ₪". */
   rateUnit: string;
-  /** The first month's premium in ₪, to the agora; null when not priced. */
+  /**
+   * The monthly premium of the first year in ₪, to the agora, after the
+   * company's discount when one applies; null when not priced. What the
+   * companies are compared on and what the customer is shown.
+   */
   monthly: number | null;
+  /** The card's monthly premium before any discount. Absent on quotes made before discounts were applied (2026-11-06). */
+  listMonthly?: number | null;
+  /** The discount in `monthly`: null when none applies, absent on quotes made before discounts were applied. */
+  discount?: AppliedDiscount | null;
   /** Why there is no price, in words the customer and the agency both read. */
   unavailable?: string;
 };
@@ -439,6 +455,8 @@ export type MortgageQuote = {
   sex: Sex;
   smoker: boolean;
   sumInsured: number;
+  /** Years left on the mortgage; null when not asked, absent on quotes made before the form asked it. */
+  loanYears?: number | null;
   quotes: CompanyQuote[];
   /** The cheapest company that priced it; null when none did. */
   best: CompanyKey | null;
@@ -488,17 +506,22 @@ export function computeMortgageQuote(input: MortgageQuoteInput, onIso: string = 
   const age = completedYears(input.birthDate, onIso);
   const priceAge = insuranceAge(input.birthDate, onIso);
   const sumInsured = Math.round(input.balance);
+  const loanYears = input.loanYears ?? null;
 
   const quotes: CompanyQuote[] = COMPANIES.map((c) => {
     const { table, label } = c.table(sumInsured);
     const base = { company: c.key, name: c.name, plan: c.plan, table: label, rateUnit: unitLabel(table.unit) };
-    const none = (unavailable: string): CompanyQuote => ({ ...base, rate: null, monthly: null, unavailable });
+    const none = (unavailable: string): CompanyQuote => ({ ...base, rate: null, monthly: null, listMonthly: null, discount: null, unavailable });
     if (priceAge > c.maxAge) return none(`לא מחושב מעל גיל ${c.maxAge}`);
     if (priceAge < c.minAge) return none(`לא מחושב מתחת לגיל ${c.minAge}`);
     if (c.minSum && sumInsured < c.minSum) return none(`לא מחושב לסכום ביטוח מתחת ל-${wholeShekels(c.minSum)}`);
     const rate = rateFor(table, priceAge, input.sex, input.smoker);
     if (rate === null) return none("אין תעריף לגיל זה");
-    return { ...base, rate, monthly: monthlyPremium(rate, sumInsured, table.unit) };
+    const listMonthly = monthlyPremium(rate, sumInsured, table.unit);
+    // The one discount this company gives a policy joining today, when any applies.
+    const choice = bestDiscount({ company: c.key, on: onIso, insuranceAge: priceAge, sumInsured, monthly: listMonthly, loanYears });
+    const discount = choice ? appliedDiscount(choice) : null;
+    return { ...base, rate, listMonthly, monthly: discount ? discountedMonthly(listMonthly, discount.percent) : listMonthly, discount };
   });
 
   // Cheapest first; on a tie the order of COMPANIES decides who is named.
@@ -514,6 +537,7 @@ export function computeMortgageQuote(input: MortgageQuoteInput, onIso: string = 
     sex: input.sex,
     smoker: input.smoker,
     sumInsured,
+    loanYears,
     quotes,
     best: best?.company ?? null,
     tie: Boolean(best && next && best.monthly === next.monthly),
@@ -527,10 +551,12 @@ export function quoteInputFromAnswers(answers: Record<string, string | undefined
   const sexRaw = answers[MORTGAGE_FIELDS.sex];
   const smokingRaw = answers[MORTGAGE_FIELDS.smoking];
   const balance = Number(answers[MORTGAGE_FIELDS.balance]);
+  const years = Number(answers[MORTGAGE_FIELDS.loanYears]);
   const sex: Sex | null = sexRaw === SEX_OPTIONS.male ? "male" : sexRaw === SEX_OPTIONS.female ? "female" : null;
   const smoker = smokingRaw === SMOKING_OPTIONS.smoker ? true : smokingRaw === SMOKING_OPTIONS.nonSmoker ? false : null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate) || !sex || smoker === null || !Number.isFinite(balance) || balance <= 0) return null;
-  return { birthDate, sex, smoker, balance };
+  // Whole years: 24.5 years left does not reach a 25-year minimum.
+  return { birthDate, sex, smoker, balance, loanYears: Number.isFinite(years) && years >= 1 ? Math.floor(years) : null };
 }
 
 // ── Reading it back ─────────────────────────────────────────────────────────
@@ -550,19 +576,23 @@ export function bestQuote(q: MortgageQuote): CompanyQuote | null {
 }
 
 /**
- * What the customer's browser is sent and shown: the lowest first-month premium
- * and what it rests on, with no company named (owner, 2026-11-05: the customer
- * sees the price only). The companies, their prices and their rates stay with
- * the agency: the email, the lead and the back-office.
+ * What the customer's browser is sent and shown: the lowest monthly premium of
+ * the first year and what it rests on, with no company named (owner, 2026-11-05:
+ * the customer sees the price only). The companies, their prices, their rates
+ * and their discounts stay with the agency: the email, the lead and the back-office.
  */
 export type CustomerQuote = Pick<MortgageQuote, "insuranceAge" | "sex" | "smoker" | "sumInsured"> & {
-  /** The lowest first-month premium in ₪; null when no card priced it. */
+  /** The lowest monthly premium of the first year in ₪, after the discount in it; null when no card priced it. */
   monthly: number | null;
+  /** The last day a new policy gets the discount in that price, ISO; null when it has none. */
+  discountUntil: string | null;
 };
 
 export function customerQuote(q: MortgageQuote): CustomerQuote {
+  const best = bestQuote(q);
   return {
-    monthly: bestQuote(q)?.monthly ?? null,
+    monthly: best?.monthly ?? null,
+    discountUntil: best?.discount?.until ?? null,
     insuranceAge: q.insuranceAge,
     sex: q.sex,
     smoker: q.smoker,
@@ -589,14 +619,21 @@ export function rateLine(c: CompanyQuote): string {
  * card shows the prices without parsing anything.
  */
 export function quoteAnswerFields(q: MortgageQuote): Record<string, string> {
-  const line = (c: CompanyQuote) => (c.monthly !== null ? `${shekels(c.monthly)} לחודש` : c.unavailable ?? "לא מחושב");
+  const line = (c: CompanyQuote) =>
+    c.monthly === null
+      ? (c.unavailable ?? "לא מחושב")
+      : `${shekels(c.monthly)} לחודש${c.discount ? ` (לפני הנחה ${shekels(c.listMonthly ?? c.monthly)}; ${discountHeadline(c.discount)})` : c.discount === null ? " (ללא הנחה)" : ""}`;
   const best = bestQuote(q);
   const out: Record<string, string> = {
     _quote: JSON.stringify(q),
-    quote_best: best?.monthly != null ? `${best.name}: ${shekels(best.monthly)} לחודש` : "לא חושב אוטומטית",
+    quote_best:
+      best?.monthly != null ? `${best.name}: ${shekels(best.monthly)} לחודש${best.discount ? `, ${discountHeadline(best.discount)}` : ""}` : "לא חושב אוטומטית",
     quote_insurance_age: String(q.insuranceAge),
     quote_sum_insured: wholeShekels(q.sumInsured),
   };
+  if (q.loanYears != null) out.quote_years_left = String(q.loanYears);
+  // Which company's discount the lowest price rests on, and all of it: the row to mark on the proposal.
+  if (best?.discount) out.quote_discount = `${best.name}: ${discountDetails(best.discount)}`;
   for (const c of q.quotes) out[`quote_${c.company}`] = line(c);
   return out;
 }
@@ -620,18 +657,29 @@ export function quoteEmailRows(q: MortgageQuote): Array<{ label: string; value: 
   const rows = [
     {
       label: "בדיקת מחיר: הזול ביותר",
-      value: best?.monthly != null ? `${best.name}, ${shekels(best.monthly)} לחודש${q.tie ? " (מחיר זהה גם בחברה נוספת)" : ""}` : "לא חושב אוטומטית",
+      value:
+        best?.monthly != null
+          ? `${best.name}, ${shekels(best.monthly)} לחודש${best.discount ? `, ${discountHeadline(best.discount)}` : ""}${q.tie ? " (מחיר זהה גם בחברה נוספת)" : ""}`
+          : "לא חושב אוטומטית",
     },
   ];
   for (const c of q.quotes) {
     rows.push({
       label: `${c.name}: ${c.plan}`,
-      value: c.monthly !== null ? `${shekels(c.monthly)} לחודש. תעריף: ${rateLine(c)}` : c.unavailable ?? "לא מחושב",
+      // A line each (the email keeps line breaks): the price, the discount it rests on, the rate.
+      value:
+        c.monthly !== null
+          ? [
+              `${shekels(c.monthly)} לחודש${c.discount ? ` (לפני הנחה ${shekels(c.listMonthly ?? c.monthly)})` : ""}`,
+              ...(c.discount ? discountLines(c.discount) : ["ללא הנחה פעילה"]),
+              `תעריף: ${rateLine(c)}`,
+            ].join("\n")
+          : (c.unavailable ?? "לא מחושב"),
     });
   }
   rows.push({
     label: "נתוני החישוב",
-    value: `סכום ביטוח ${wholeShekels(q.sumInsured)} · גיל ${q.age} (גיל ביטוחי ${q.insuranceAge}) · ${personLabel(q)}`,
+    value: `סכום ביטוח ${wholeShekels(q.sumInsured)}${q.loanYears != null ? ` · ${q.loanYears} שנים שנותרו למשכנתא` : ""} · גיל ${q.age} (גיל ביטוחי ${q.insuranceAge}) · ${personLabel(q)}`,
   });
   return rows;
 }
